@@ -40,12 +40,6 @@ privfim run --dataset DefaultCredit --seeds 2026 2027 2028 2029 2030 --output re
 ```
 
 原始文件保存于 `data/raw/`，整数 CSV 与编码记录保存于 `data/real/`。
-已处理文件通过 SHA-256 检查后复用。处理规则和 Bank 的历史来源边界见 [DATA.md](docs/DATA.md)。
-使用 `--data-dir /your/data` 改变目录，或直接评估自己的整数表：
-
-```bash
-privfim run --csv /path/to/table.csv --seeds 2026 --output results/custom
-```
 
 CSV 首行为 `0,1,...,M-1`，其余行是整数类别码。同一列内编码须一致，缺失值应作为预先定义的类别。
 不同列的相同数字是不同 item。公开值域和预处理规则是实验输入。
@@ -55,10 +49,8 @@ CSV 首行为 `0,1,...,M-1`，其余行是整数类别码。同一列内编码�
 | CLI 名称 | 报告与估计 |
 |---|---|
 | MAP-M（图中 PriVFim） | 目标单项与本地联合投影共同排序，每方最多 k 个键，正向 Alpha + MAP |
-| MAP-S | 候选涉及的目标单项 Alpha，直接交集 MAP |
-| MAP-L | 候选的所有唯一非空本地投影 Alpha，无 k 个键上限 |
-| IE-Full（内部 fm_full） | 相关属性完整值域 Alpha，通过 noisy N 减补集并集估计 |
-| IE-Other（内部 fm_other） | 未点名的属性值合并到 OTHER 桶，再通过并补估计 |
+| IE-Full | 相关属性完整值域 Alpha，通过 noisy N 减补集并集估计 |
+| IE-Other | 未点名的属性值合并到 OTHER 桶，再通过并补估计 |
 | FO | OUE 对齐报告和去偏交集估计 |
 | First-round | 单轮加噪单项计数，频率乘积猜测候选支持数 |
 | Second-round | 单轮报告公开本地值域中所有单项、二项、三项 Alpha，再用 MAP 估计 |
@@ -67,9 +59,6 @@ CSV 首行为 `0,1,...,M-1`，其余行是整数类别码。同一列内编码�
 ```bash
 privfim run --dataset Toy --methods MAP-S MAP-L MAP-M --seeds 2026 --output results/map_compare
 ```
-
-`mixed_joint_budget_weight>0` 在当前实现中启用属性投影测量组预算复用，不是简单的数值权重。
-设为 0 表示关闭复用、逐键均分。流程和预算说明见 [METHOD.md](docs/METHOD.md)。
 
 ## 11 类实验
 
@@ -103,10 +92,6 @@ privfim suite --datasets Toy --seeds 2026 --m 32 --output results/all11_smoke
 privfim suite --experiments 2 --datasets Bank --values 5 15 25 --seeds 2026 --output results/k_custom
 ```
 
-同一输出目录可恢复已完成且代码、数据、配置校验和一致的任务。
-改动代码或数据后使用新结果目录。扩展 seed 时保留旧 seed 并增加新 seed 即可。
-`--max-rows` 用于显式的小规模验证。实验 4 请使用样本比例，二者不能混用。
-
 ## 输出与评价
 
 每个实验输出 `runs.csv`、`aggregated.csv`、`figures/*.pdf`。每个任务另存
@@ -127,13 +112,7 @@ privfim suite --experiments 2 --datasets Bank --values 5 15 25 --seeds 2026 --ou
 privfim plot --input results/credit/aggregated.csv --output results/credit/redraw
 ```
 
-## 密码学
-
-密码学按数据集独立评估，没有默认时间窗口，也不预设 F1/NCR 为 1。
-真实 TFHE、Paillier 的安装运行和计时口径见 [CRYPTO.md](docs/CRYPTO.md)。
-该入口不参加普通 suite 的自动调度。
-
-## 目录与实现边界
+## 目录
 
 ```text
 privfim/                 核心客户端、服务端、DP-FM/MAP、并补、预算、指标
@@ -147,26 +126,3 @@ tests/                  核心算法、全局真值、工作流、密码学正�
 docs/                   数据、协议、密码学、验证记录
 ```
 
-这是集中进程内的联邦协议实验实现，假设用户已对齐。可复现种子与 SplitMix64 共享秩用于实验，
-没有实现生产环境的秘密 PRF 密钥分发、私有实体对齐和网络服务。条件 RDP 核算记录保留在结果中，
-不能将公开实验 seed 当作服务端未知的秘密 K。
-
-## 上传 Git
-
-`.gitignore` 已排除虚拟环境、原始下载、大型结果、构建产物和第三方仓库。
-根项目许可证尚未指定，第三方来源说明见 [NOTICE.md](NOTICE.md)。
-
-```bash
-git init -b main  # 下载源码 ZIP 时执行，已有 Git 仓库可跳过
-git add .
-git diff --cached --stat
-git commit -m "Release reproducible PrivFim implementation"
-git remote add origin YOUR_REPOSITORY_URL
-git push -u origin main
-```
-
-需要另存一个不含环境和结果的源码包时：
-
-```bash
-python scripts/package_release.py --output ../PrivFim-release.zip
-```
