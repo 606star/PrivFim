@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "privfim"
+version = "0.2.0"
+description = "Reproducible two-round vertically federated frequent itemset mining"
+requires-python = ">=3.11"
+dependencies = ["numpy>=1.26,<3", "matplotlib>=3.8,<4"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10", "build>=1,<2"]
+data = ["xlrd>=2,<3"]
+crypto = ["gmpy2>=2.2,<3"]
+
+[project.scripts]
+privfim = "workflows.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["privfim*", "workflows*", "experiments*"]
+
+[tool.setuptools.package-data]
+"experiments.crypto_reproductions" = ["*.cpp", "CMakeLists.txt", "README.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

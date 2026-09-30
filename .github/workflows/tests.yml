@@ -1,0 +1,14 @@
+name: tests
+on: [push, pull_request]
+jobs:
+  cpu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -e '.[dev,data,crypto]'
+      - run: pytest -q
+      - run: privfim prepare --datasets Toy
+      - run: privfim run --dataset Toy --seeds 2026 --m 32 --k 5 --output results/ci

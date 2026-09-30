@@ -1,0 +1,10 @@
+{
+  "name": "Bank",
+  "source": "Historical integer Bank table used by this project",
+  "source_dataset": "UCI Bank Marketing",
+  "source_page": "https://archive.ics.uci.edu/dataset/222/bank+marketing",
+  "archive_sha256": "ef65341b71bf3c6f75cc02486d018ee7c107824e70210f6d44ec10a8fd5cb1ee",
+  "csv_sha256": "9848a4cdd0a12464c133ad1bded0ab776536e20d096dbe201ea753b0c33c63f8",
+  "preprocessing_provenance": "Exact reference export. The original raw-to-integer transformation script was not available. This is not a newly reconstructed official preprocessing pipeline.",
+  "includes_label": "not independently established for the historical 18-column representation"
+}
