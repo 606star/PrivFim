@@ -45,7 +45,7 @@ def evaluate_estimates(
 ) -> EvaluationMetrics:
     true_order = sorted(exact_supports, key=lambda key: (-exact_supports[key], key))
     predicted_order = [estimate.itemset for estimate in estimates]
-    # 候选因限键而不可估计时，不能缩小真实 Top-k 来掩盖缺失结果。
+    # Do not shrink the true top-k to hide candidates made unestimable by a key cap.
     effective_k = min(k, len(true_order))
     true_top = true_order[:effective_k]
     predicted_top = predicted_order[:k]

@@ -15,7 +15,7 @@ UINT64_MASK = np.uint64(0xFFFFFFFFFFFFFFFF)
 
 
 def _splitmix64(values: np.ndarray) -> np.ndarray:
-    """可复现的 64 位混合函数，用于为对齐用户 ID 生成公共哈希秩。"""
+    """Reproducible 64-bit mixing function for public hash ranks of aligned user IDs."""
     with np.errstate(over="ignore"):
         values = (values + np.uint64(0x9E3779B97F4A7C15)) & UINT64_MASK
         values = ((values ^ (values >> np.uint64(30))) * np.uint64(0xBF58476D1CE4E5B9)) & UINT64_MASK
@@ -71,9 +71,9 @@ def stable_seed(*parts: object) -> int:
 
 @dataclass(frozen=True)
 class RankOracle:
-    """所有客户端共享的用户 ID 几何哈希秩，保证跨方 α 可以组合。
+    """Geometric user-ID hash ranks shared by all clients for combining Alpha across owners.
 
-    秩矩阵按 ``(user, coordinate)`` 存储，使集合成员的整行访问保持连续。
+    Store ranks as ``(user, coordinate)`` so each member's row is contiguous in memory.
     """
 
     ranks: np.ndarray
@@ -186,7 +186,7 @@ def sample_geometric_max(
     set_size: float,
     gamma: float,
 ) -> np.ndarray:
-    """直接采样 K 个几何变量的最大值，避免真的构造 K 个幻影元素。"""
+    """Sample the maximum of K geometric variables without materializing K phantom elements."""
     uniform = np.clip(rng.random(sample_count), np.finfo(float).tiny, 1.0)
     one_minus_root = -np.expm1(np.log(uniform) / set_size)
     return np.ceil(-np.log(one_minus_root) / math.log1p(gamma))
@@ -202,7 +202,7 @@ def fm_cardinality(alpha: np.ndarray, gamma: float, phantom_count: float) -> flo
 
 
 def _candidate_grid(upper: int, map_step: int, max_map_points: int) -> np.ndarray:
-    """构造包含 0 和上界的整数搜索网格。"""
+    """Build an integer search grid containing zero and the upper bound."""
     if upper <= 0:
         return np.asarray([0.0])
     step = max(map_step, math.ceil(upper / max_map_points))
@@ -218,7 +218,7 @@ def _bounded_candidate_grid(
     map_step: int,
     max_map_points: int,
 ) -> np.ndarray:
-    """在闭区间内构造包含两个端点的整数 MAP 搜索网格。"""
+    """Build an integer MAP grid over a closed interval, including both endpoints."""
     if lower < 0 or upper < lower:
         raise ValueError(f"MAP 搜索区间不合法: [{lower}, {upper}]")
     if lower == upper:
@@ -231,7 +231,7 @@ def _bounded_candidate_grid(
 
 
 def _geometric_log_cdf(value: float, gamma: float) -> float:
-    """单个几何秩在 value 处的 log-CDF。"""
+    """Return the log-CDF of one geometric rank at value."""
     if value <= 0:
         return float("-inf")
     cdf = -math.expm1(-value * math.log1p(gamma))
@@ -239,7 +239,7 @@ def _geometric_log_cdf(value: float, gamma: float) -> float:
 
 
 def _geometric_log_cdf_array(values: np.ndarray, gamma: float) -> np.ndarray:
-    """向量化几何 CDF 的对数；输入值必须为正。"""
+    """Vectorized log geometric CDF; input values must be positive."""
     return np.log(-np.expm1(-values * math.log1p(gamma)))
 
 
@@ -260,7 +260,7 @@ def private_cardinality_map_estimate(
     map_step: int,
     max_map_points: int,
 ) -> float:
-    """使用完整私有 Alpha 向量估计单个集合大小。"""
+    """Estimate one set's cardinality from its complete privatized Alpha vector."""
     candidates = _candidate_grid(n_rows, map_step, max_map_points)
     total_sizes = candidates + report.phantom_count
     alpha_min = _alpha_min_for_report(report, gamma)
@@ -284,7 +284,7 @@ def intersection_bounds(
     block_counts: np.ndarray,
     n_rows: int,
 ) -> tuple[int, int]:
-    """由边缘集合大小给出交集的 Frechet 集合论上下界。"""
+    """Compute Frechet intersection bounds from marginal set cardinalities."""
     counts = np.clip(np.asarray(block_counts, dtype=np.float64), 0.0, n_rows)
     if counts.ndim != 1 or len(counts) == 0:
         raise ValueError("交集边界至少需要一个边缘集合大小")
@@ -302,7 +302,7 @@ def _private_cardinality_map_values(
     map_step: int,
     max_map_points: int,
 ) -> float:
-    """已知幻影数量和截断下限时，对私有 Alpha 执行联合 MAP。"""
+    """Apply joint MAP to privatized Alpha with known phantom counts and truncation floors."""
     candidates = _candidate_grid(n_rows, map_step, max_map_points)
     total_sizes = candidates + phantom_count
     observations, occurrences = np.unique(alpha, return_counts=True)
@@ -328,7 +328,7 @@ def union_complement_estimate(
     map_step: int,
     max_map_points: int,
 ) -> float:
-    """通过补集取并估计交集频数；该分布对任意块数均精确。"""
+    """Estimate intersection support via complement union, exact for any number of blocks."""
     if not reports:
         return 0.0
     if not all(report.is_complement for report in reports):
@@ -357,7 +357,7 @@ def union_complement_fm_estimate(
     n_rows: int,
     gamma: float,
 ) -> float:
-    """传统 FM 反演消融：合并补集 Alpha 后直接做偏差校正反演。"""
+    """Classical FM ablation: merge complement Alpha and apply bias-corrected inversion."""
     if not reports:
         return 0.0
     if not all(report.is_complement for report in reports):
@@ -380,7 +380,7 @@ def fm_category_intersection_estimate(
     n_rows: int,
     gamma: float,
 ) -> float:
-    """用正向类别桶的 FM Alpha 取并，得到目标交集的补集大小。"""
+    """Union positive category-bin Alpha to estimate the target intersection's complement."""
     if not reports:
         return float(n_rows)
     if any(report.is_complement for report in reports):
@@ -406,7 +406,7 @@ def _joint_log_cdf(
     alpha_mins: np.ndarray,
     gamma: float,
 ) -> np.ndarray:
-    """私有 Alpha 联合 CDF；两块时精确，多块时采用公共交集核模型。"""
+    """Joint privatized-Alpha CDF: exact for two blocks, common-core model for more blocks."""
     if np.any(limits < alpha_mins):
         return np.full(len(candidates), float("-inf"), dtype=np.float64)
 
@@ -428,7 +428,7 @@ def _joint_log_probability(
     alpha_mins: np.ndarray,
     gamma: float,
 ) -> np.ndarray:
-    """由联合 CDF 的有限差分计算一个 Alpha 向量的 log-PMF。"""
+    """Compute an Alpha vector's log-PMF by finite differences of the joint CDF."""
     return _joint_log_probability_batch(
         observations=np.asarray(observation, dtype=np.float64)[None, :],
         candidates=candidates,
@@ -447,7 +447,7 @@ def _joint_log_probability_batch(
     alpha_mins: np.ndarray,
     gamma: float,
 ) -> np.ndarray:
-    """批量计算联合 PMF，避免对每个 Alpha 坐标重复 Python 循环。"""
+    """Batch joint-PMF evaluation to avoid Python loops over individual Alpha coordinates."""
     observations = np.asarray(observations, dtype=np.float64)
     if observations.ndim != 2:
         raise ValueError("联合 Alpha 观测必须是二维数组")
@@ -489,7 +489,7 @@ def _joint_log_likelihood(
     alpha_mins: np.ndarray,
     gamma: float,
 ) -> np.ndarray:
-    """计算一组候选交集基数的联合对数似然。"""
+    """Compute joint log-likelihoods for candidate intersection cardinalities."""
     log_likelihood = np.zeros(len(candidates), dtype=np.float64)
     chunk_size = 128
     for start in range(0, len(observations), chunk_size):
@@ -518,11 +518,12 @@ def _adaptive_joint_map(
     gamma: float,
     coarse_points: int = 64,
 ) -> float:
-    """先定位似然峰，再在原始候选网格上局部精搜。
+    """Locate the likelihood peak, then refine locally on the original candidate grid.
 
-    联合似然随交集基数平滑变化。完整候选域实验会重复求解数千次，若每次都
-    对最多 1500 个网格点求值，代价会被无意义的远离峰值区域主导。这里先在
-    原网格的等距子集上定位，再把相邻两个粗网格区间按原分辨率完整求值。
+    The joint likelihood varies smoothly with intersection cardinality. Full-domain
+    experiments repeat estimation thousands of times, making up to 1,500 evaluations
+    per grid costly. Locate the peak on an evenly spaced subset, then fully evaluate
+    its two adjacent coarse intervals at the original resolution.
     """
     if len(candidates) == 1:
         return float(candidates[0])
@@ -576,10 +577,11 @@ def map_intersection_estimate(
     block_counts: np.ndarray | None = None,
     use_frechet_lower_bound: bool = True,
 ) -> float:
-    """使用全部私有 Alpha 坐标的联合似然估计全局交集频数。
+    """Estimate global intersection support using all privatized Alpha coordinates.
 
-    两个本地块时联合分布是精确的。三个及以上本地块缺少各阶部分交集
-    统计量，因此使用“所有块只共享最终公共交集”的公共交集核近似。
+    The joint distribution is exact for two local blocks. With three or more blocks,
+    partial-intersection statistics are unavailable, so use a common-core approximation
+    in which blocks share only their final common intersection.
     """
     if not reports:
         return 0.0
@@ -614,8 +616,8 @@ def map_intersection_estimate(
 
     lower, upper = intersection_bounds(block_counts, n_rows)
     if not use_frechet_lower_bound:
-        # 消融时仅移除由边缘基数导出的 Frechet 下界；上界 min_j |B_j|
-        # 仍是交集属于每个局部块的必然约束，而非额外的先验假设。
+        # Remove only the marginal-derived Frechet lower bound in this ablation.
+        # The upper bound min_j |B_j| follows from set containment, not an extra prior.
         lower = 0
     candidates = _bounded_candidate_grid(
         lower, upper, map_step, max_map_points
@@ -651,11 +653,11 @@ def _nested_pair_log_probability_batch(
     alpha_mins: np.ndarray,
     gamma: float,
 ) -> np.ndarray:
-    """计算 A、B、A∩B 三份 Alpha 的精确嵌套集合 PMF。
+    """Compute the exact nested-set PMF for the Alpha sketches of A, B, and A∩B.
 
-    联合键不是替换单项键：对每个坐标，它们共享同一用户秩。设 d=|A∩B|，
-    则 clean CDF 为 F(t_A)^(|A|-d) F(t_B)^(|B|-d)
-    F(min(t_A,t_B,t_AB))^d；各 Alpha 的幻影元素保持独立。
+    Joint keys supplement singletons and share user ranks at each coordinate.
+    With d=|A∩B|, the clean CDF is F(t_A)^(|A|-d) F(t_B)^(|B|-d)
+    F(min(t_A,t_B,t_AB))^d. Phantom elements remain independent across Alpha sketches.
     """
     observations = np.asarray(observations, dtype=np.float64)
     log_terms = []
@@ -669,8 +671,8 @@ def _nested_pair_log_probability_batch(
         log_common = _geometric_log_cdf_array(
             np.min(safe_limits, axis=1), gamma
         )
-        # 幻影元素只属于各自报告；A\\B、B\\A 与 A∩B 的真实元素
-        # 分别贡献 F(t_A), F(t_B), F(min(t_A,t_B,t_AB))。
+        # Phantom elements belong only to their own reports. Real elements in A\\B,
+        # B\\A, and A∩B contribute F(t_A), F(t_B), and F(min(t_A,t_B,t_AB)), respectively.
         base = (
             (left_count + phantom_counts[0]) * log_cdfs[:, 0]
             + (right_count + phantom_counts[1]) * log_cdfs[:, 1]
@@ -733,7 +735,7 @@ def map_nested_pair_cardinality_estimate(
     left_count: float | None = None,
     right_count: float | None = None,
 ) -> float:
-    """融合 `{a}`、`{b}` 与本地 `{a,b}` Alpha 的精确 MAP 频率估计。"""
+    """Exact MAP frequency estimation combining `{a}`, `{b}`, and local `{a,b}` Alpha."""
     reports = (left_report, right_report, joint_report)
     if any(report.is_complement for report in reports):
         raise ValueError("嵌套 MAP 需要正向 Alpha")

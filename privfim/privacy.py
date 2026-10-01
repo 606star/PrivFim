@@ -21,10 +21,11 @@ class PerKeyBudget:
 
 @dataclass(frozen=True)
 class GroupedBudgetAllocation:
-    """按属性投影分组后的预算和公开分组结构。
+    """Budgets and public group structure for attribute-projection grouping.
 
-    同一组中的键有相同属性集合、不同属性取值，因此一条记录至多命中其中
-    一个键。这里采用 add/remove 邻接关系：组内键可并行组合，组间再顺序组合。
+    Keys within a group share attributes but differ in values, so a record matches
+    at most one key. Under add/remove adjacency, compose keys in parallel within
+    each group and compose groups sequentially.
     """
 
     groups: dict[MeasurementGroup, tuple[Itemset, ...]]
@@ -50,7 +51,7 @@ class OverlapRdpAccount:
 
 
 def split_budget(epsilon: float, delta: float, key_count: int) -> PerKeyBudget:
-    """按报告原语（键或测量组）均分预算；tuple 另由 RDP 审计。"""
+    """Split budgets equally across keys or measurement groups; audit tuples with RDP."""
     if epsilon <= 0 or not 0 < delta < 1:
         raise ValueError("epsilon/delta 不合法")
     if key_count <= 0:
@@ -61,7 +62,7 @@ def split_budget(epsilon: float, delta: float, key_count: int) -> PerKeyBudget:
 def split_weighted_budget(
     epsilon: float, delta: float, weights: list[float]
 ) -> list[PerKeyBudget]:
-    """按公开键类型权重分配预算；总 epsilon/delta 不变。"""
+    """Allocate budgets by public key-type weights, preserving total epsilon/delta."""
     if epsilon <= 0 or not 0 < delta < 1:
         raise ValueError("epsilon/delta 不合法")
     if not weights or any(weight <= 0 for weight in weights):
@@ -74,7 +75,7 @@ def split_weighted_budget(
 
 
 def measurement_group(key: Itemset) -> MeasurementGroup:
-    """返回键对应的本地属性投影，忽略具体属性取值。"""
+    """Return a key's local attribute projection, ignoring its values."""
     if not key:
         raise ValueError("报告键不能为空")
     attributes = tuple(attr for attr, _ in key)
@@ -86,7 +87,7 @@ def measurement_group(key: Itemset) -> MeasurementGroup:
 def measurement_groups(
     keys: tuple[Itemset, ...],
 ) -> dict[MeasurementGroup, tuple[Itemset, ...]]:
-    """按本地投影归并公开报告键，组内键是互斥值桶。"""
+    """Group public report keys by local projection into mutually exclusive value bins."""
     grouped: dict[MeasurementGroup, list[Itemset]] = {}
     for key in sorted(keys):
         grouped.setdefault(measurement_group(key), []).append(key)
@@ -101,12 +102,12 @@ def split_grouped_budget(
     delta: float,
     keys: tuple[Itemset, ...],
 ) -> GroupedBudgetAllocation:
-    """将预算均分到属性投影组，并复用于组内互斥的值桶。
+    """Split budgets equally across projection groups and reuse them within disjoint bins.
 
-    例如 `{a=0}`、`{a=1}` 同属 `(a,)` 组；`{a=0,b=1}`、
-    `{a=1,b=1}` 同属 `(a,b)` 组。每个组获得 `epsilon / G`、
-    `delta / G`，而不是再按组内桶数量稀释。组间可能同时命中，故在
-    `public_measurement_group_overlap_bound` 中按组顺序组合。
+    For example, `{a=0}` and `{a=1}` share group `(a,)`, while `{a=0,b=1}`
+    and `{a=1,b=1}` share `(a,b)`. Each group receives `epsilon / G` and
+    `delta / G`, without further division by its bin count. A record can match
+    multiple groups, so `public_measurement_group_overlap_bound` composes them sequentially.
     """
     groups = measurement_groups(keys)
     group_budget = split_budget(epsilon, delta, len(groups))
@@ -123,7 +124,7 @@ def dpfm_coordinate_epsilon(
     delta: float,
     repetitions: int,
 ) -> float:
-    """将一个 DPFM 向量预算转换成单个哈希坐标的纯 DP 参数。"""
+    """Convert a DPFM vector budget to the pure-DP parameter for one hash coordinate."""
     if epsilon <= 0 or not 0 < delta < 1:
         raise ValueError("epsilon/delta 不合法")
     if repetitions <= 0:
@@ -137,10 +138,10 @@ def overlap_rdp_account(
     overlap_bounds: dict[str, int],
     coordinate_epsilons: dict[str, float],
 ) -> OverlapRdpAccount:
-    """计算共享哈希重叠键 tuple 的保守 RDP 到近似 DP 界。
+    """Bound approximate DP from RDP for overlapping-key tuples with shared hashes.
 
-    对客户端 j，一条记录至多命中 q_j 个键，且每个坐标的标量
-    DPFM 参数为 eta_j。VertiMRF 条件链证明推广给出
+    For client j, one record matches at most q_j keys, with scalar DPFM
+    parameter eta_j per coordinate. Extending the VertiMRF conditional-chain argument gives
     rho(lambda) <= 2*m*lambda*sum_j(q_j*eta_j^2)。
     """
     if repetitions <= 0:
@@ -182,16 +183,16 @@ def overlap_rdp_account(
 
 
 def public_overlap_bound(keys: tuple[Itemset, ...]) -> int:
-    """由公开报告键给出单条记录可同时命中键数的保守上界。"""
+    """Conservatively bound the number of public report keys one record can match."""
     singleton_attributes = {key[0][0] for key in keys if len(key) == 1}
     multi_itemset_count = sum(len(key) > 1 for key in keys)
     return len(singleton_attributes) + multi_itemset_count
 
 
 def public_measurement_group_overlap_bound(keys: tuple[Itemset, ...]) -> int:
-    """分组发布中一条记录可命中的测量组数上界。
+    """Bound the number of measurement groups one record can match.
 
-    同一属性投影的两个键只可能在某个属性取值不同，因此组内最多命中一个；
-    不同投影组保守地允许同时命中，故组数本身是公开的安全上界。
+    Distinct keys with the same projection differ in a value, allowing at most one
+    match per group. Different groups may all match, so the group count is a safe public bound.
     """
     return len(measurement_groups(keys))

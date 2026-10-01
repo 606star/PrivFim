@@ -89,7 +89,7 @@ def _candidate_sets(
 def _cdp_round1(
     clients: list[VerticalClient], epsilon: float, n_epsilon: float, seed: int
 ) -> tuple[dict[tuple[int, int], float], int, int]:
-    """可信中心在完整表上做 Laplace 单项计数；零通信是模型定义的一部分。"""
+    """Central Laplace item counts on the full table; zero communication is part of this model."""
     per_client = epsilon / len(clients)
     noisy_counts: dict[tuple[int, int], float] = {}
     released_values = 0
@@ -114,10 +114,11 @@ def _ldp_round1(
     n_rows: int,
     report_limit: int | None = None,
 ) -> tuple[dict[tuple[int, int], float], int]:
-    """每列完整值域先做 OUE，再按私有化估计选择本地 Top-P 上报。
+    """Apply OUE to each full column domain, then select local top-P by privatized estimates.
 
-    键选择仅依赖 OUE 输出，因此是隐私机制的后处理。通信量按最终实际
-    上报的 OUE 列计算，使 P_i 消融与 MAP/FM 的第一轮口径一致。
+    Key selection uses only OUE outputs and is therefore post-processing. Count
+    communication for the OUE columns actually reported, matching the first-round
+    reporting scope of the MAP/FM P_i ablation.
     """
     per_client = epsilon / len(clients)
     noisy_counts: dict[tuple[int, int], float] = {}
@@ -192,7 +193,7 @@ def _ldp_estimates(
     noisy_singleton_counts: dict[tuple[int, int], float] | None = None,
     report_key_limit: int = 15,
 ) -> tuple[list[CandidateEstimate], int, int, list[float], dict[str, float]]:
-    """对固定正向块逐键 OUE，并以对齐用户报告的去偏积估计跨方交集。"""
+    """Apply OUE to fixed positive-set keys and estimate intersections by debiased aligned-report products."""
     local_policy = (
         "top_k"
         if mode == MIXED_ITEMSET_ALPHA

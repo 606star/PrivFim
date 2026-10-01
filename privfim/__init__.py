@@ -1,4 +1,4 @@
-"""PrivFim: 两轮纵向联邦差分隐私频繁项集挖掘实验框架。"""
+"""PrivFim: an experimental framework for two-round vertical DP itemset mining."""
 
 from .config import ExperimentConfig, load_config
 from .pipeline import run_experiment

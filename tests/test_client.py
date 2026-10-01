@@ -35,7 +35,7 @@ def test_enhanced_mode_adds_deduplicated_local_itemset_keys():
     enhanced = set(client.report_keys(candidates, LOCAL_ITEMSET_ALPHA))
 
     assert singleton == {((0, 1),), ((1, 2),)}
-    # S 同时需要本地联合投影、属性 0 单项投影和属性 1 单项投影。
+    # S requires a local joint projection and singleton projections for attributes 0 and 1.
     assert enhanced == {((0, 1),), ((1, 2),), ((0, 1), (1, 2))}
 
     oracle = RankOracle.build(n_rows=3, m=8, gamma=1.0, seed=11)
@@ -118,8 +118,8 @@ def test_map_m_top_k_jointly_ranks_singletons_and_local_itemsets():
         },
     )
 
-    # {0=1,1=1} 的乘积猜测为 3*2.4/3=2.4，与 {1=1} 并列，
-    # 因而能与单项键统一竞争，而不是只能填充单项后的剩余槽位。
+    # The product guess for {0=1,1=1} is 3*2.4/3=2.4, tying {1=1}.
+    # Joint keys compete directly with items rather than filling only leftover slots.
     assert selected == (
         ((0, 1),),
         ((0, 1), (1, 1)),
@@ -201,7 +201,7 @@ def test_map_m_allocates_budget_by_attribute_projection_groups():
             (1, 1): 1.0,
             (2, 1): 0.8,
         },
-        # v18 忽略旧的键级联合项权重。
+        # v18 ignores the legacy per-key joint-item weight.
         local_joint_budget_weight=99.0,
     )
 
@@ -212,8 +212,8 @@ def test_map_m_allocates_budget_by_attribute_projection_groups():
         ((2, 1),),
         ((0, 0), (1, 1)),
     }
-    # (0,)、(1,)、(2,) 与 (0,1) 四个测量组各获得 epsilon=0.75；其中
-    # (0,) 含两个互斥性别值桶，因此不再像逐键分配那样只有 epsilon=0.6。
+    # Groups (0,), (1,), (2,), and (0,1) each receive epsilon=0.75. Group (0,)
+    # contains two disjoint gender bins, avoiding the per-key allocation of epsilon=0.6.
     assert all(report.epsilon == 0.75 for report in reports)
     assert all(report.delta == pytest.approx(1e-5 / 4) for report in reports)
 
@@ -298,7 +298,7 @@ def test_map_m_bin_merges_public_value_buckets_before_generating_alpha():
         [True, True, True, False],
         [False, False, False, True],
     ]
-    # 两个桶属于同一属性投影组，因此各自复用 epsilon=2，而非拆成 1。
+    # Both bins share a projection group and reuse epsilon=2 instead of splitting it into 1 each.
     assert all(report.epsilon == 2.0 for report in reports)
 
 

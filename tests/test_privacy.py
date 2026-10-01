@@ -22,7 +22,7 @@ def test_public_overlap_bound_groups_incompatible_singleton_buckets():
         ((0, 0), (2, 3)),
     )
 
-    # 一条记录在属性 0 的两个单值桶中至多命中一个；两个多项键保守计入。
+    # A record matches at most one attribute-0 singleton bin; count both joint keys conservatively.
     assert public_overlap_bound(keys) == 4
 
 
@@ -49,7 +49,7 @@ def test_measurement_group_budget_reuses_budget_for_mutually_exclusive_buckets()
         (1,): (((1, 0),),),
         (0, 1): (((0, 0), (1, 0)), ((0, 1), (1, 0))),
     }
-    # 三个投影组均分预算；同组的两个值桶不再继续除以 2。
+    # Split the budget across three projection groups, without splitting again across two bins in a group.
     assert all(
         budget.epsilon == pytest.approx(2.0)
         and budget.delta == pytest.approx(1e-5)

@@ -138,8 +138,8 @@ class PrivFimServer:
                 ) in available_report_keys:
                     blocks.append(binned_projection)
                     continue
-                # MAP-M 的联合精确键没有进入 Top-k 时，若对应的桶化单项
-                # 均已存在，仍可按桶化 MAP-S 路径完成该候选的低维估计。
+                # If an exact joint key misses top-k but all binned component items exist,
+                # fall back to the lower-dimensional binned MAP-S estimation path.
                 singleton_blocks = tuple(
                     binned_itemset(
                         canonical_itemset([item]),
@@ -191,7 +191,7 @@ class PrivFimServer:
                     for block in singleton_blocks
                 ):
                     return None
-                # 联合块未进入本地 Top-k，但组成它的单项均已上传时可退化估计。
+                # Fall back to reported component items when the joint block misses local top-k.
                 blocks.extend(singleton_blocks)
         return tuple(blocks)
 
@@ -225,9 +225,9 @@ class PrivFimServer:
             and self.domains is not None
             and map_m_bin_count is not None
         ):
-            # BinP 在同一桶化候选键内使用第一轮 SVSM 频率猜测作后验先验。
-            # 归一化保证同一桶交集的质量不会被多个精确候选重复计算；候选
-            # 先验只来自服务端已有的 DP transcript，因此是后处理。
+            # BinP uses first-round SVSM guesses as priors within each binned candidate key.
+            # Normalize them to avoid counting the same bin-intersection mass multiple times.
+            # Priors use only the server's existing DP transcript and are post-processing.
             grouped_candidates: dict[Itemset, list[Candidate]] = defaultdict(list)
             for candidate in candidates:
                 bucket_key = binned_itemset(
@@ -275,7 +275,7 @@ class PrivFimServer:
             MAP_BOUNDS_ONLY_ESTIMATOR,
         }
         if estimator in map_estimators:
-            # 候选会大量复用单项报告；先完成只读缓存，随后即可并行估计候选。
+            # Candidates reuse many singleton reports; build read-only caches before parallel estimation.
             for report_id, report in report_by_client_key.items():
                 marginal_count_cache[report_id] = private_cardinality_map_estimate(
                     report=report,
@@ -325,10 +325,10 @@ class PrivFimServer:
                     for report in block_reports
                 ]
                 if estimator == MAP_ESTIMATOR:
-                    # 对跨方候选，保留联合块 Alpha 与组成单项 Alpha 的全部
-                    # 信息：先以精确嵌套 MAP 修正该本地块的边缘基数，再将它
-                    # 作为跨方直接交集 MAP 的边缘约束。这样不会把联合键当作
-                    # 单项键的替代品。
+                    # For cross-owner candidates, retain both joint and component Alpha.
+                    # Refine the local block's marginal cardinality with exact nested MAP,
+                    # then use it as a marginal constraint for direct intersection MAP.
+                    # Joint keys thus supplement rather than replace singleton observations.
                     for index, (block, report) in enumerate(
                         zip(blocks, block_reports, strict=True)
                     ):
@@ -354,9 +354,9 @@ class PrivFimServer:
                             right_count=marginal_count_cache[(right_report.client_id, right_report.key)],
                         )
                 nested_pair = None
-                # MAP-L-Top 同时保存单项回退键和一个本地二项联合键时，三份
-                # Alpha 是同一用户秩上的嵌套集合观测。融合它们比仅用联合键
-                # 更充分，且两块局部结构的联合分布可精确计算。
+                # With fallback singletons and a local pair, MAP-L-Top observes three
+                # nested sets with shared user ranks. Combining them uses more information
+                # than the joint key alone, with an exact distribution for this local structure.
                 if (
                     estimator == MAP_ESTIMATOR
                     and len(candidate.itemset) == 2
@@ -389,7 +389,7 @@ class PrivFimServer:
                     lower, upper = intersection_bounds(
                         np.asarray(block_counts, dtype=np.float64), self.n_rows
                     )
-                    # 只保留单块 MAP 与集合论区间，不使用 Alpha 联合似然。
+                    # Use only marginal MAP and set-theoretic bounds, without the joint Alpha likelihood.
                     estimated_count = float((lower + upper) / 2.0)
                 else:
                     estimated_count = map_intersection_estimate(
@@ -419,14 +419,14 @@ class PrivFimServer:
                 raise ValueError(f"未知估计器: {estimator}")
             if binned_map_m:
                 if mode == MIXED_PROTECTED_BINNED_ITEMSET_ALPHA:
-                    # BinP 不再假设桶内各属性独立，而是将桶交集质量按候选
-                    # 的 SVSM 先验分配给同桶精确项集；单独受保护的高价值
-                    # value 通常形成单候选桶，权重自然为 1。
+                    # BinP allocates bin-intersection mass to exact candidates by SVSM priors,
+                    # rather than assuming within-bin attribute independence. Protected
+                    # high-value bins usually contain a single candidate with weight 1.
                     estimated_count *= candidate_prior_by_itemset.get(
                         candidate.itemset, 0.0
                     )
                 else:
-                    # 普通 Bin 保持 VertiMRF 风格的桶内条件独立恢复。
+                    # Standard Bin retains VertiMRF-style conditionally independent within-bin recovery.
                     within_bin_mass = float(
                         np.prod(
                             [

@@ -7,8 +7,8 @@ import numpy as np
 from .types import AlphaReport, Candidate, NoisyCountReport
 
 
-# 紧凑二进制线格式：长度字段和属性编号用 uint32，项数用 uint16，
-# 属性值用 int64，候选猜测频数、统计量和 Alpha 用 float64。
+# Compact wire format: uint32 lengths/attribute IDs, uint16 item counts,
+# int64 attribute values, and float64 guessed counts, statistics, and Alpha.
 U16_BYTES = 2
 U32_BYTES = 4
 I64_BYTES = 8
@@ -53,7 +53,7 @@ def candidate_downlink_bytes(
 ) -> tuple[int, int]:
     one_message = candidate_message_bytes(candidates, include_guessed_count)
     if noisy_singleton_counts is not None:
-        # 条目编码为 attribute:uint32、value:int64、noisy_count:float64。
+        # Entry format: attribute:uint32, value:int64, noisy_count:float64.
         one_message += U32_BYTES + len(noisy_singleton_counts) * (
             U32_BYTES + I64_BYTES + F64_BYTES
         )
@@ -64,10 +64,11 @@ def binning_message_bytes(
     binning: tuple[tuple[tuple[int, ...], ...], ...] | None,
     attributes: tuple[int, ...] | None = None,
 ) -> int:
-    """编码第二轮需要的公开分箱计划。
+    """Encode the public binning plan required by the second round.
 
-    普通 Bin 的桶是连续区间，只需发送末端切点；BinP 可能将候选 value
-    单独保护成非连续桶，此时改用显式值表。两种编码都只依赖公开计划。
+    Standard Bin uses contiguous ranges, requiring only end cut points. BinP may
+    protect candidate values in noncontiguous bins, which use explicit value lists.
+    Both encodings depend only on the public plan.
     """
     if binning is None:
         return 0
@@ -95,7 +96,7 @@ def binning_downlink_bytes(
     binning: tuple[tuple[tuple[int, ...], ...], ...] | None,
     attributes_by_client: dict[str, tuple[int, ...]] | None,
 ) -> tuple[int, dict[str, int]]:
-    """计算按属性归属定向下发的 MAP-M-Bin 计划开销。"""
+    """Count MAP-M-Bin plan bytes sent selectively to the relevant attribute owners."""
     if binning is None:
         return 0, {}
     if attributes_by_client is None:

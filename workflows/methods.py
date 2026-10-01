@@ -1,4 +1,4 @@
-"""主方案、并补、FO 与单轮消融使用同一数据和输出接口。"""
+"""Shared data and output interfaces for MAP, complement unions, FO, and one-round ablations."""
 from __future__ import annotations
 
 import math
@@ -43,7 +43,7 @@ def fo(dataset, p):
         MIXED_ITEMSET_ALPHA, noisy_n, counts,
         p.k if p.second_stage_upload_limit is None else p.second_stage_upload_limit,
     )
-    # OUE 位串 + noisy N + 广播的键、猜测频数与目标单项频数。
+    # OUE bits, noisy N, and broadcast keys, guessed counts, and target item counts.
     download = len(clients) * (candidate_message_bytes(candidates, True) + 4 + 20 * len(counts))
     return estimates, {
         "round1_seconds": phase1_seconds, "rank_seconds": 0.,
@@ -63,7 +63,7 @@ def one_round(dataset, p, method):
     start = time.perf_counter()
     oracle_seconds = 0.
     if method == "First-round":
-        # 只有一轮，全部预算在本轮消耗，其中 10% 用于 noisy N。
+        # Spend the entire budget in this single round, with 10% allocated to noisy N.
         r1 = [c.round1_report(p.epsilon * .9 / count, p.seed,
                               n_epsilon=p.epsilon * .1 / count,
                               report_limit=p.first_stage_report_limit) for c in clients]
@@ -77,7 +77,7 @@ def one_round(dataset, p, method):
         server_seconds = 0.
         privacy = {"model": "Laplace full-domain histogram, noisy top-P postprocessing"}
     else:
-        # 本地键在接收任何服务器反馈前由公开值域确定。
+        # Determine local keys from public domains before receiving any server feedback.
         n_eps = p.epsilon * .05
         alpha_eps = p.epsilon - n_eps
         r1 = []

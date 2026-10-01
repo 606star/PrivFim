@@ -67,7 +67,7 @@ def test_audited_method_and_resume(tmp_path, method):
 
 
 def test_second_round_reports_all_public_local_triples(tmp_path):
-    # 2 方各 4 个二元属性：每方 C(4,1)*2 + C(4,2)*4 + C(4,3)*8 = 64 个键。
+    # Two owners with four binary attributes each: C(4,1)*2 + C(4,2)*4 + C(4,3)*8 = 64 keys per owner.
     source = prepare("Toy", tmp_path)
     ds = load_vertical_csv(source, 2, max_rows=40)
     _, info = one_round(ds, ProtocolConfig(k=5, m=16, first_stage_report_limit=5), "Second-round")

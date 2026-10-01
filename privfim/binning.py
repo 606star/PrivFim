@@ -7,14 +7,14 @@ import numpy as np
 from .types import Item, Itemset, canonical_itemset
 
 
-# 每个属性对应一组互斥值桶；普通 Bin 使用连续桶，BinP 会把候选高价值
-# value 单独保护成桶，因此尾部桶可能不是原始值域上的连续区间。桶边界
-# 只由公开值域、第一轮已私有化直方图和候选先验确定。
+# Each attribute has disjoint value bins. Standard Bin uses contiguous ranges;
+# BinP protects high-value candidates separately, so tail bins may be noncontiguous.
+# Boundaries depend only on public domains, first-round DP histograms, and candidate priors.
 BinningPlan: TypeAlias = tuple[tuple[tuple[int, ...], ...], ...]
 
 
 def bin_values(domain: tuple[int, ...], bin_count: int) -> tuple[tuple[int, ...], ...]:
-    """按公开离散值域顺序将值均匀分配到至多 ``bin_count`` 个桶。"""
+    """Split the ordered public domain evenly into at most ``bin_count`` bins."""
     if bin_count < 1:
         raise ValueError("bin_count 必须大于 0")
     values = tuple(sorted(int(value) for value in domain))
@@ -32,11 +32,11 @@ def private_quantile_bins(
     noisy_counts: dict[tuple[int, int], float],
     bin_count: int,
 ) -> BinningPlan:
-    """由第一轮私有直方图构造连续的近似等质量桶。
+    """Build contiguous, approximately equal-mass bins from the first-round DP histogram.
 
-    边界只读取第一轮已经发布的 Laplace 计数，因此是该轮 transcript 的后处理。
-    如果一个属性的全部私有计数都截断为零，则退回公开等宽桶，避免由私有原始行
-    补救边界。每个桶至少保留一个公开值，以保证桶映射始终完整。
+    Boundaries use only released Laplace counts and are transcript post-processing.
+    If all noisy counts for an attribute clip to zero, use equal-width public bins
+    without consulting raw private rows. Each bin contains at least one public value.
     """
     return tuple(
         _private_quantile_values(
@@ -57,10 +57,10 @@ def protected_private_quantile_bins(
     bin_count: int,
     item_scores: dict[Item, float],
 ) -> BinningPlan:
-    """保护候选高价值 value，其余 value 使用私有质量分桶。
+    """Protect high-value candidates and bin remaining values by their noisy mass.
 
-    总桶数仍不超过 bin_count；最多一半桶用于单值保护，剩余桶压缩长尾。
-    输入只来自第一轮 DP transcript、公开值域和候选先验，因此是后处理。
+    Use at most bin_count bins, reserving at most half for protected single values.
+    Compress the long tail using only the DP transcript, public domains, and candidate priors.
     """
     if bin_count < 1:
         raise ValueError("bin_count 必须大于 0")
@@ -112,8 +112,8 @@ def _private_quantile_values(
     if float(nonnegative.sum()) <= 0.0:
         return bin_values(values, bucket_count)
 
-    # 逐桶选择最接近当前剩余平均质量的连续前缀。max_end 保证剩余每桶至少
-    # 有一个公开值；相较按值编号等宽，这会把高频相邻值放进更细的桶。
+    # Choose a prefix closest to the remaining average mass for each bin. max_end
+    # reserves a value for every later bin, yielding finer bins around frequent values.
     buckets: list[tuple[int, ...]] = []
     start = 0
     remaining_mass = float(nonnegative.sum())
@@ -130,7 +130,7 @@ def _private_quantile_values(
             if distance < best_distance:
                 best_end = end
                 best_distance = distance
-            # 后续质量只会继续增大；越过目标后不会再次变得更接近。
+            # Mass can only increase; after overshooting, later prefixes cannot be closer.
             if prefix_mass >= target_mass:
                 break
         buckets.append(values[start:best_end])
@@ -165,7 +165,7 @@ def value_bin_index(
     binning: BinningPlan | None = None,
     attr: int | None = None,
 ) -> int:
-    """返回一个公开值所属的桶编号。"""
+    """Return the bin index containing a public value."""
     buckets = _attribute_bins(
         0 if attr is None else attr, domain, bin_count, binning
     )
@@ -181,7 +181,7 @@ def binned_itemset(
     bin_count: int,
     binning: BinningPlan | None = None,
 ) -> Itemset:
-    """将精确项集映射为相应的公开分箱项集。"""
+    """Map an exact itemset to its public binned representation."""
     return canonical_itemset(
         (attr, value_bin_index(value, domains[attr], bin_count, binning, attr))
         for attr, value in itemset
@@ -195,7 +195,7 @@ def bin_membership_values(
     bin_count: int,
     binning: BinningPlan | None = None,
 ) -> np.ndarray:
-    """返回一个公开分箱键对应的原始值集合。"""
+    """Return the original values represented by a public bin key."""
     buckets = _attribute_bins(attr, domains[attr], bin_count, binning)
     if not 0 <= bin_index < len(buckets):
         raise ValueError(f"属性 {attr} 的分箱编号 {bin_index} 不合法")
@@ -210,7 +210,7 @@ def within_bin_probability(
     bin_count: int,
     binning: BinningPlan | None = None,
 ) -> float:
-    """用第一轮私有直方图估计 ``P(value | public_bin(value))``。"""
+    """Estimate ``P(value | public_bin(value))`` from the first-round DP histogram."""
     values = bin_membership_values(
         attr,
         value_bin_index(value, domains[attr], bin_count, binning, attr),

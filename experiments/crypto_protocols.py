@@ -74,7 +74,7 @@ class ProtocolTranscript:
 
     def to_dict(self) -> dict[str, Any]:
         result = asdict(self)
-        # 执行过模拟函数不等于测到了完整密码学协议的时间。
+        # Running a simulation does not measure the complete cryptographic protocol's runtime.
         requirements = {
             "native_cryptography": self.metadata.get("cryptographic_wall_clock") is True,
             "complete_protocol": self.metadata.get("protocol_complete") is True,
@@ -1160,7 +1160,7 @@ def _build_vpp_owner_records(
             meta["ta_rows"] += len(ta)
 
         database_d = real_rows + ta
-        # TA 是验证完整性的陷阱数据，必须参与挖掘。random 模式仅是干扰行烟测。
+        # TA contains integrity-check traps and must be mined; random mode only smoke-tests decoy rows.
         flags_d = [1] * len(real_rows) + [int(artificial_mode == "paper")] * len(ta)
         maximum_fictitious = max(minimum_fictitious, 2 * minimum_fictitious)
         database_z, flags_z, giannotti_meta = _giannotti_insert(
@@ -1354,7 +1354,7 @@ def run_vpp_ofim(
     for record in owner_records:
         owner_id = int(record["owner_id"])
         token_set = {token for row in record["rows"] for token in row}
-        # 抽样中支持数为零的公开取值也要能被查询，不能因没有观测而丢掉候选。
+        # Public values absent from the sample must remain queryable, rather than dropping candidates.
         token_set.update(_token_for_item((attribute, int(value)))
                          for attribute in record["attributes"]
                          for value in dataset.domains[attribute])

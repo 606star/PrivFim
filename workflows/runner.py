@@ -1,4 +1,4 @@
-"""可恢复的实验闭环：参数→协议→全局真值→指标→汇总。"""
+"""Resumable workflow: configuration → protocol → global truth → metrics → aggregates."""
 from __future__ import annotations
 
 import hashlib
@@ -84,7 +84,7 @@ def run_case(config, method, output, *, dataset_name="custom", axis="default", v
     try:
         config.validate()
         p = config.protocol
-        # 相同数据配置也用于离线真值，包括抽样、属性合并和值域缩减。
+        # Use the same sampling, attribute merging, and domain reduction for offline truth.
         dataset = load_vertical_csv(**asdict(config.data))
         if method in CORE_METHODS:
             estimator, mode = CORE_METHODS[method]

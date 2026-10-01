@@ -60,7 +60,7 @@ class BlindedComparison:
     def greater(self, encrypted_x, encrypted_y):
         pk = self.public
         difference = pk.add(encrypted_x, modpow(encrypted_y, -1, pk.n2))
-        # 2(x-y)-1 在相等时为 -1，正负号始终对应严格大于关系。
+        # At equality, 2(x-y)-1 is -1, so its sign implements strict greater-than.
         odd_difference = pk.add(modpow(difference, 2, pk.n2), pk.encrypt(pk.n - 1))
         flipped = secrets.randbits(1)
         if flipped:
@@ -150,14 +150,14 @@ def _prepare_owner(ds, owner, pk, tid_secret, threshold, anonymity, verification
     afi, aii, artificial = verification_pattern(owner, threshold, verification_width)
     universe.update(itertools.chain.from_iterable(artificial))
     padding, classes = frequency_padding(real + artificial, universe, anonymity)
-    # 替代密码字典保留在数据方。云端仅看到随机标签和它们的归属方。
+    # Owners retain substitution dictionaries; the cloud sees only random labels and their owners.
     substitution = {item: secrets.token_hex(16) for item in sorted(universe)}
     reverse = {label: item for item, label in substitution.items()}
     records = []
     for kind, transactions, flag in (("real", real, 1), ("verification", artificial, 1),
                                       ("fictitious", padding, 0)):
         for index, transaction in enumerate(transactions):
-            # 真用户 TID 跨方一致，新增记录使用不冲突的命名空间。
+            # Real user TIDs are aligned across owners; added records use disjoint namespaces.
             tid = f"real:{index}" if kind == "real" else f"{kind}:{owner}:{index}"
             records.append(CloudRow(hmac.digest(tid_secret, tid.encode(), "sha256"),
                                     frozenset(substitution[x] for x in transaction), pk.encrypt(flag)))
@@ -220,7 +220,7 @@ def _cloud_mine(owner_records, pk, compare, encrypted_threshold, max_size, candi
             total = pk.encrypt(0)
             for owner in sorted(involved):
                 total = pk.add(total, encrypted_flags[owner, index])
-            # RV 都是 0/1，因此 sum > |D(S)|-1 等价于所有相关分片均为真。
+            # RVs are binary, so sum > |D(S)|-1 holds exactly when every relevant partition is true.
             indicator = compare.greater(total, required_minus_one)
             encrypted_support = pk.add(encrypted_support, indicator)
             indicator_calls += 1
@@ -275,7 +275,7 @@ def run_vpp(ds, *, threshold=0, max_size=4, anonymity=2, verification_width=3,
                                  selected_labels, public_label_owner, progress)
     cloud = time.perf_counter() - phase
     phase = time.perf_counter()
-    # 数据方协作解密、还原标签与排序是支持 top-k 的显式扩展。
+    # Cooperative decryption, label recovery, and ranking explicitly extend the protocol to top-k.
     reverse = {label: item for owner in owners for label, item in owner[1].items()}
     returned_frequent, supports, flags = set(), {}, {}
     for labels, encrypted_count, encrypted_flag in replies:

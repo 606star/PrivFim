@@ -1,4 +1,4 @@
-"""官方数据下载、整数编码与来源记录；Toy 可完全离线生成。"""
+"""Download official data, encode integers, and record provenance; generate Toy offline."""
 from __future__ import annotations
 
 import csv
@@ -142,7 +142,7 @@ def prepare(name, data_dir=None):
                         with z.open(member) as handle:
                             parts.append(np.loadtxt(handle, delimiter=",", dtype=np.int64)[:, :-1])
                     values = np.concatenate(parts)
-                    # 原始花色、点数已经是整数，保留它们以兼容已有实验的 item 键。
+                    # Preserve integer suits/ranks to keep item keys compatible with earlier experiments.
                     if (np.any((values[:, ::2] < 1) | (values[:, ::2] > 4))
                             or np.any((values[:, 1::2] < 1) | (values[:, 1::2] > 13))):
                         raise ValueError("PokerHand suit/rank outside the official domains")

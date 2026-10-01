@@ -29,7 +29,7 @@ struct CipherArray {
     CipherArray& operator=(const CipherArray&) = delete;
 };
 
-// 云端只能访问密文和 cloud key。不会收到私钥或原始支持数。
+// The cloud receives only ciphertexts and the cloud key, never private keys or raw supports.
 static void cloud_query(LweSample* support, LweSample* below, LweSample* above,
                         const std::vector<LweSample*>& encrypted_rows,
                         int columns, int width, const LweSample* query,
@@ -45,7 +45,7 @@ static void cloud_query(LweSample* support, LweSample* below, LweSample* above,
             ppfim::secure_subset_testing(membership.p, query, row, columns, cloud);
         ppfim::secure_count(support, width, membership.p, cloud);
     }
-    // 保留上游的 support < threshold 语义，并额外给出严格大于关系。
+    // Preserve upstream support < threshold semantics and also expose strict greater-than.
     ppfim::secure_compare(below, support, threshold, width, cloud);
     ppfim::secure_compare(above, threshold, support, width, cloud);
 }
@@ -98,7 +98,7 @@ int main(int argc, char** argv) {
             CipherArray support(q * width, params), below(q, params), above(q, params);
             std::vector<double> owner_seconds(owners);
             phase = Clock::now();
-            // 同一用户行已经对齐，各数据方只加密自己的列，云端拼接密文。
+            // User rows are aligned. Owners encrypt only their columns; the cloud joins ciphertexts.
             for (int o = 0; o < owners; ++o) {
                 auto os = Clock::now();
                 for (int r = 0; r < n; ++r) for (int j = 0; j < d; ++j)
@@ -136,7 +136,7 @@ int main(int argc, char** argv) {
             }
             const double decrypt = elapsed(phase);
             const double protocol = elapsed(start);
-            // 复核原始上游入口，单独计时，不重复计入协议运行时间。
+            // Check the original upstream entry point and time it separately from the protocol.
             phase = Clock::now();
             if (check) {
                 CipherArray result(1, params);

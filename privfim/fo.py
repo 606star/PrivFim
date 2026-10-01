@@ -6,14 +6,14 @@ import numpy as np
 
 
 def oue_parameters(epsilon: float) -> tuple[float, float]:
-    """经典 OUE 的一元编码参数 (p, q)。"""
+    """Return the unary encoding parameters (p, q) for classical OUE."""
     if epsilon <= 0:
         raise ValueError("OUE epsilon 必须为正数")
     return 0.5, 1.0 / (math.exp(epsilon) + 1.0)
 
 
 def oue_encode(values: np.ndarray, domain: tuple[int, ...], epsilon: float, seed: int) -> np.ndarray:
-    """对分类取值执行 OUE，返回 shape=(n, |domain|) 的二进制报告。"""
+    """Encode categorical values with OUE into binary reports of shape (n, |domain|)."""
     values = np.asarray(values)
     if values.ndim != 1:
         raise ValueError("OUE 输入必须是一维分类值")
@@ -28,7 +28,7 @@ def oue_encode(values: np.ndarray, domain: tuple[int, ...], epsilon: float, seed
 
 
 def oue_estimate_count(reports: np.ndarray, epsilon: float, category_index: int) -> float:
-    """从 OUE 某一类别的报告列作无偏频数估计。"""
+    """Estimate an unbiased category count from its OUE report column."""
     reports = np.asarray(reports, dtype=np.float64)
     if reports.ndim != 2:
         raise ValueError("OUE 报告必须是二维数组")
@@ -43,10 +43,10 @@ def oue_column_sums(
     seed: int,
     max_chunk_cells: int = 1_000_000,
 ) -> np.ndarray:
-    """分批生成相同 OUE 随机位并累计列和，避免保留 N×值域矩阵。
+    """Generate OUE bits in batches and accumulate column sums without storing the full matrix.
 
-    随机数按原实现的逐行顺序生成；固定输入和 seed 时，列和与完整
-    oue_encode 的结果完全一致。通信量仍按实际模拟的报告位数统计。
+    Generate randomness in the original row order. For fixed inputs and seed, sums
+    match full oue_encode exactly. Communication still counts all simulated report bits.
     """
     values = np.asarray(values)
     if values.ndim != 1 or not domain or max_chunk_cells < 1:
@@ -64,7 +64,7 @@ def oue_column_sums(
 
 
 def oue_positive_membership(membership: np.ndarray, epsilon: float, seed: int) -> np.ndarray:
-    """二值 OUE 的正类别位；该位是交集估计所需的充分统计量。"""
+    """Return the positive-class OUE bit, sufficient for binary intersection estimation."""
     membership = np.asarray(membership, dtype=bool)
     p, q = oue_parameters(epsilon)
     rng = np.random.default_rng(seed)
@@ -74,10 +74,10 @@ def oue_positive_membership(membership: np.ndarray, epsilon: float, seed: int) -
 def oue_intersection_estimate(
     positive_reports: list[np.ndarray], epsilons: list[float], n_rows: float
 ) -> float:
-    """由对齐用户的独立 OUE 二值报告无偏估计多块交集。
+    """Estimate multi-block intersections without bias from aligned independent OUE reports.
 
-    OUE 的向量长度仍由实际对齐报告确定；``n_rows`` 仅作为服务端发布的
-    noisy N，用于结果截断，不再要求它是整数或等于消息长度。
+    Vector lengths follow the aligned reports. ``n_rows`` is only the server's noisy N
+    for clipping estimates; it need not be an integer or equal the message length.
     """
     if not positive_reports:
         return 0.0

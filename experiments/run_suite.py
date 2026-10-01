@@ -124,7 +124,7 @@ class ExperimentCase:
     first_stage_mode: str = "singleton"
     candidate_pruning: str = "topk"
     phase1_ratio: float = 0.5
-    # 允许论文复现实验显式固定纵向属性放置；旧实验默认按原列序。
+    # Allow fixed attribute placement for reproduction; legacy runs default to column order.
     partition_strategy: str = "order"
     partition_seed: int | None = None
 
@@ -164,7 +164,7 @@ def _dataset_specs() -> dict[str, DatasetSpec]:
         "Diabetic": DatasetSpec(
             "Diabetic", real_dir / "Diabetic.csv", "real"
         ),
-        # 官网重建版：47 个 UCI 特征，ID 与 readmitted 标签已分离。
+        # Official-data reconstruction: 47 UCI features, excluding ID and the readmitted label.
         "DiabeticUCI": DatasetSpec(
             "DiabeticUCI", real_dir / "DiabeticUCI.csv", "real"
         ),
@@ -253,7 +253,7 @@ def build_cases(
     def add(axis: str, dataset_name: str | None = None, **changes: object) -> None:
         if axis not in selected_axes:
             return
-        # 参数消融默认仍只用 Retail；显式指定时复用相同设置覆盖多个数据集。
+        # Parameter ablations default to Retail; explicit datasets reuse the same settings.
         if dataset_name is None:
             for name in sweep_datasets:
                 add(axis, name, **changes)
@@ -383,7 +383,7 @@ def _run_id(
     if mixed_joint_weight is not None:
         identity = (*identity, "mixed_joint_budget_weight", mixed_joint_weight)
     if estimator != MAP_ESTIMATOR:
-        # 协议版本进入缓存键，避免复用早期语义不同的 FM 结果。
+        # Include the protocol version in cache keys to reject FM results with earlier semantics.
         identity = (*identity, estimator, "category-buckets-v1")
     identity = json.dumps(identity, default=str, separators=(",", ":"))
     digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:12]
@@ -468,7 +468,7 @@ def _flatten(
     for mode, result in summary["modes"].items():
         communication = result.get("communication")
         if communication is None:
-            # 兼容通信统计加入之前生成的 MAP 正式缓存。
+            # Support MAP caches created before communication statistics were added.
             communication = {
                 "round1_uplink_bytes": math.nan,
                 "candidate_downlink_bytes": math.nan,
@@ -705,8 +705,8 @@ def aggregate_rows(rows: list[dict]) -> list[dict]:
     )
     grouped: dict[tuple, list[dict]] = {}
     for row in rows:
-        # 历史实验 CSV 没有后续加入的隐私会计维度；保留空标签即可合并，
-        # 不能把缺失字段伪装成某个已经证明的会计模型。
+        # Legacy CSVs lack newer privacy-accounting fields. Keep empty labels when merging;
+        # do not fill missing fields with an accounting model that was never established.
         grouped.setdefault(
             tuple(row.get(name, "") for name in dimensions), []
         ).append(row)
@@ -992,7 +992,7 @@ def main() -> None:
             if oracle_cache is not None:
                 while len(oracle_cache) > args.oracle_cache_entries:
                     del oracle_cache[next(iter(oracle_cache))]
-        except Exception as exc:  # 批量实验需要记录失败并支持断点续跑。
+        except Exception as exc:  # Record batch failures so execution can resume later.
             failure = {
                 "run_id": run_id,
                 "dataset": case.dataset.name,

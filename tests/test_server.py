@@ -202,8 +202,8 @@ def test_map_m_bin_uses_first_round_private_binning_plan(monkeypatch):
         round1_noisy_counts={(0, 1): 1.0, (0, 2): 8.0, (0, 3): 1.0, (1, 0): 6.0, (1, 1): 4.0},
     )[0]
 
-    # a0=2 属于私有计划的 {1,2,3} 桶，a1=0 属于 {0,1} 桶；恢复概率
-    # 分别为 8/10 和 6/10，证明服务端没有退回公开等宽分箱。
+    # The private plan maps a0=2 to {1,2,3} and a1=0 to {0,1}, with recovery
+    # probabilities 8/10 and 6/10, verifying no fallback to equal-width public bins.
     assert estimate.local_blocks == (((0, 1),), ((1, 0),))
     assert estimate.estimated_count == pytest.approx(6.0 * 0.8 * 0.6)
 

@@ -1,4 +1,4 @@
-"""协议完成后，用完整合法项集空间独立复核，不限于候选 S。"""
+"""Audit the complete legal itemset space after the protocol, not just candidates S."""
 from __future__ import annotations
 
 import time

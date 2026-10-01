@@ -1,4 +1,4 @@
-"""上传上限独立于最终 k 与广播 S；默认行为保持不变。"""
+"""Upload caps are independent of output k and broadcast S; defaults remain unchanged."""
 import csv
 from dataclasses import replace
 
@@ -28,7 +28,7 @@ def test_upload_cap_ranks_singletons_and_joint_keys_together():
     assert small == (((0, 1),),)
     assert set(all_keys) == {((0, 1),), ((1, 1),), ((0, 1), (1, 1))}
     assert large == all_keys
-    # 不足上限不补齐；不限仍按同一公开规则生成键。
+    # Do not pad to the cap; unlimited mode uses the same public key-generation rule.
     assert len(large) == 3
 
 

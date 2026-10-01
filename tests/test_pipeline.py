@@ -176,8 +176,8 @@ def test_end_to_end_fm_protocols_use_distinct_bucket_counts(tmp_path):
         assert result["scheme_label"] in {"FM-Full", "FM-Other"}
         assert 0.0 <= result["metrics"]["f1"] <= 1.0
 
-    # Top-k 单项分别来自三个属性，Top-2k 候选覆盖它们。FM-Full 上传
-    # 3+2+2 个公开域桶；FM-Other 每个属性上传目标值和一个 OTHER 桶。
+    # Top-k items come from three attributes and are covered by top-2k candidates.
+    # FM-Full reports 3+2+2 public bins; FM-Other reports targets plus one OTHER per attribute.
     assert key_counts[FM_FULL_ESTIMATOR] == 7
     assert key_counts[FM_OTHER_ESTIMATOR] == 6
 

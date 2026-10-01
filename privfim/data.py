@@ -10,7 +10,7 @@ from .types import Itemset
 
 
 def _normalized_mutual_information(data: np.ndarray) -> np.ndarray:
-    """为实验性属性共置分组计算公开的离散属性关联矩阵。"""
+    """Compute a public categorical-attribute affinity matrix for colocation experiments."""
     n_attributes = data.shape[1]
     scores = np.eye(n_attributes, dtype=np.float64)
     n_rows = max(len(data), 1)
@@ -56,12 +56,12 @@ def _affinity_partitions(
     counts: list[int],
     seed: int | None,
 ) -> tuple[tuple[int, ...], ...]:
-    """按属性关联度共置，同时严格遵守每个客户端的容量。"""
+    """Colocate related attributes while respecting each client's capacity."""
     affinity = _normalized_mutual_information(data)
     remaining = set(range(data.shape[1]))
     groups: list[list[int]] = [[] for _ in counts]
 
-    # 先用 farthest-point seeds 分开不同关联簇，再向每个簇填充最相近属性。
+    # Separate clusters with farthest-point seeds, then add the most similar attributes.
     for owner, capacity in enumerate(counts):
         if capacity <= 0:
             continue
@@ -99,7 +99,7 @@ def _affinity_partitions(
                     if group
                     else 0.0
                 )
-                # 同分时优先填充较小方，严格保持公开比例。
+                # Break ties in favor of smaller clients, preserving the public ratios.
                 candidate = (score, -len(group), -owner)
                 if best_score is None or candidate > best_score:
                     best_score = candidate
@@ -201,7 +201,7 @@ class VerticalDataset:
     data: np.ndarray
     attributes: tuple[int, ...]
     partitions: tuple[tuple[int, ...], ...]
-    # 从完整数据文件确定的公开离散值域；抽样数据中没有的值也会保留。
+    # Public domains from the complete file, including values absent from sampled rows.
     domains: tuple[tuple[int, ...], ...]
     transform: dict[str, object] | None = None
 
@@ -280,7 +280,7 @@ def load_vertical_csv(
             elif len(rows) < max_rows:
                 rows.append(values)
             elif rng is not None:
-                # Reservoir sampling 避免 max_rows 截取文件前缀造成顺序偏差。
+                # Reservoir sampling avoids the ordering bias of taking a file prefix.
                 replacement = int(rng.integers(0, index + 1))
                 if replacement < max_rows:
                     rows[replacement] = values
@@ -341,7 +341,7 @@ def load_vertical_csv(
         for index in order[:remainder]:
             counts[index] += 1
 
-        # 极端比例也保证每个数据方至少持有一个属性。
+        # Ensure each owner receives an attribute, even under extreme ratios.
         for empty in np.flatnonzero(counts == 0):
             donors = np.flatnonzero(counts > 1)
             if len(donors) == 0:

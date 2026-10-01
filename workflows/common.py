@@ -1,4 +1,4 @@
-"""统一路径、校验和与结构化结果，便于迁移和复核。"""
+"""Shared paths, checksums, and structured outputs for portability and auditing."""
 from __future__ import annotations
 
 import csv

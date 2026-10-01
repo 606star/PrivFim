@@ -1,4 +1,4 @@
-"""与现有 SVSM 排序严格等价的分支限界搜索，用于独立剪枝消融。"""
+"""Branch-and-bound search equivalent to SVSM ranking, for the pruning ablation."""
 from __future__ import annotations
 
 import heapq
@@ -14,7 +14,7 @@ class _WorstFirst:
     candidate: Candidate
 
     def __lt__(self, other):
-        # 堆顶为得分最低、同分时字典序最大的候选。
+        # The heap root has the lowest score, breaking ties by greatest lexicographic key.
         a, b = self.candidate, other.candidate
         return (-a.score, a.itemset) > (-b.score, b.itemset)
 
@@ -22,10 +22,11 @@ class _WorstFirst:
 def search_candidates(frequent_items: list[tuple[Item, float]], n_rows: float,
                       candidate_count: int, min_size: int = 1,
                       max_size: int = 4, *, pruning: bool = True):
-    """返回候选与搜索计数；只用已发布频数，不访问真实支持数。
+    """Return candidates and search counts using released counts, never true supports.
 
-    相同的遍历、评分和堆维护用于两个实验臂。每个乘数至多为 0.9，
-    后代得分不超过父节点。严格低于阈值才停止扩展，保留同分项。
+    Both ablation arms use the same traversal, scoring, and heap maintenance.
+    Each factor is at most 0.9, so descendants cannot outscore their parent.
+    Stop expansion only strictly below the threshold, preserving ties.
     """
     stats = {"visited_nodes": 0, "expanded_nodes": 0, "pruned_nodes": 0}
     if not frequent_items or candidate_count <= 0:
@@ -46,7 +47,7 @@ def search_candidates(frequent_items: list[tuple[Item, float]], n_rows: float,
             key = canonical_itemset((*prefix, item))
             score = float(np.prod([scores[t] for t in key]))
             stats["visited_nodes"] += 1
-            # 浮点裕量避免临界舍入误剪；相等分数继续按字典序比较。
+            # A tolerance avoids pruning from rounding; equal scores use lexicographic order.
             if pruning and len(heap) == candidate_count and score < heap[0].candidate.score * (1 - 1e-12):
                 stats["pruned_nodes"] += 1
                 continue

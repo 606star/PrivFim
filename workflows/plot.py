@@ -1,4 +1,4 @@
-"""仅从本次实测汇总表绘图，缺失点不自动填充。"""
+"""Plot measured aggregates only, without automatically filling missing points."""
 import csv
 from pathlib import Path
 

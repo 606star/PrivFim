@@ -46,12 +46,12 @@ DEFAULT_SPECS = (
     SyntheticSpec(
         "highcorr_zipf_grouped", 50_000, 24, 8, 4, 0.9, 1.5, 3202, "grouped"
     ),
-    # 固定相关性和值域，只改变边缘长尾强度，避免把长尾与相关性混为一谈。
+    # Fix correlation and domain size to isolate marginal long-tail strength.
     SyntheticSpec("tail_zipf_0", 50_000, 24, 8, 4, 0.75, 0.0, 3301),
     SyntheticSpec("tail_zipf_0_6", 50_000, 24, 8, 4, 0.75, 0.6, 3301),
     SyntheticSpec("tail_zipf_1_2", 50_000, 24, 8, 4, 0.75, 1.2, 3301),
     SyntheticSpec("tail_zipf_1_8", 50_000, 24, 8, 4, 0.75, 1.8, 3301),
-    # 固定相关性和 Zipf 指数，只改变每个属性的分类值域大小。
+    # Fix correlation and the Zipf exponent while varying categorical domain sizes.
     SyntheticSpec("domain_4", 50_000, 24, 4, 4, 0.75, 1.2, 3401),
     SyntheticSpec("domain_8", 50_000, 24, 8, 4, 0.75, 1.2, 3401),
     SyntheticSpec("domain_16", 50_000, 24, 16, 4, 0.75, 1.2, 3401),
@@ -68,7 +68,7 @@ def _categorical_probabilities(domain_size: int, exponent: float) -> np.ndarray:
 
 
 def generate(spec: SyntheticSpec) -> np.ndarray:
-    """生成保持目标边缘分布、具有可控组内相关性的分类表格。"""
+    """Generate categorical data with target marginals and controlled within-group correlation."""
     if spec.n_attributes % spec.group_size != 0:
         raise ValueError("n_attributes 必须能被 group_size 整除")
     if not 0 <= spec.correlation <= 1:
@@ -109,7 +109,7 @@ def generate(spec: SyntheticSpec) -> np.ndarray:
 
 
 def group_labels(spec: SyntheticSpec) -> np.ndarray:
-    """返回输出列对应的潜变量组，用于验证布局而不读取私有真值。"""
+    """Return latent groups for output columns to verify layout without private ground truth."""
     group_count = spec.n_attributes // spec.group_size
     if spec.layout == "grouped":
         return np.repeat(np.arange(group_count), spec.group_size)

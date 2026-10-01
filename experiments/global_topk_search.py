@@ -1,4 +1,4 @@
-"""独立离线精确 Top-k 搜索，支持 k 超过单项值域总数。"""
+"""Independent exact offline top-k search, including k larger than the total item count."""
 from __future__ import annotations
 
 import heapq
@@ -22,10 +22,11 @@ class _WorstSupport:
 
 def exact_global_topk(dataset: VerticalDataset, k: int, max_size: int = 4,
                       allowed_items: set[Item] | None = None, *, min_size: int = 1):
-    """动态提高支持数下界，绝不剪掉与边界同频的项集。
+    """Raise the support lower bound dynamically without pruning ties at the boundary.
 
-    真值仅用于离线评价。搜索空间包含全部属性值的合法 min_size..max_size
-    项集；allowed_items 只用于对照旧的第一轮单项池评价口径。
+    Ground truth is used only offline. Search all legal min_size..max_size itemsets
+    over all attribute values. allowed_items supports comparisons with the legacy
+    first-round item-pool-restricted evaluation.
     """
     if k < 1 or not 1 <= min_size <= max_size:
         raise ValueError("k 必须为正数，且 1 <= min_size <= max_size")
@@ -37,7 +38,7 @@ def exact_global_topk(dataset: VerticalDataset, k: int, max_size: int = 4,
             item = (int(attr), int(value))
             if allowed_items is None or item in allowed_items:
                 counts[item] = observed.get(value, 0)
-    # 高频单项优先扩展，尽早找到足够多的候选，提高精确搜索的剪枝下界。
+    # Expand frequent items first to find candidates early and raise the exact pruning bound.
     items = sorted(counts, key=lambda item: (-counts[item], item))
     heap = []
 
@@ -53,8 +54,8 @@ def exact_global_topk(dataset: VerticalDataset, k: int, max_size: int = 4,
         for item in items:
             retain((item,), counts[item])
     elif min_size == 2:
-        # 用频数最高的有限个不同属性单项形成合法二项集下界。它只是
-        # 已验证的支持度下界，不依赖第一轮私有候选，也不会漏剪真值。
+        # Build a verified support lower bound from pairs of frequent items on distinct
+        # attributes. It does not use private first-round candidates or prune true top-k items.
         starters = items[:64]
         starter_bitmaps = {
             item: int.from_bytes(np.packbits(dataset.data[:, item[0]] == item[1],

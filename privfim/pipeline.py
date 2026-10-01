@@ -253,8 +253,8 @@ def run_experiment(
             "候选项集数量不足，无法构造完整候选集合: "
             f"candidates={len(candidates)}, expected={candidate_count_target}"
         )
-    # MAP-M-Bin/BinP 的边界仅由第一轮已私有化直方图、公开值域和候选先验
-    # 构造；随后作为固定的第二轮后处理输入，并按实际报告属性定向下发。
+    # MAP-M-Bin/BinP boundaries use only DP first-round histograms, public domains,
+    # and candidate priors. Fix them for round two and send them to relevant owners.
     item_scores = {item: max(float(count), 0.0) for item, count in frequent_items}
     map_m_binnings: dict[str, BinningPlan] = {}
     if p.map_m_bin_count is not None:
@@ -279,7 +279,7 @@ def run_experiment(
         len(direct_candidates),
     )
 
-    # 所有方法都对照 MAP-S-All 的共同候选全集，候选筛选遗漏也计入评价。
+    # Evaluate all methods on MAP-S-All's shared candidate universe, counting screening misses.
     truth_started = time.perf_counter()
     exact_supports = exact_candidate_supports(dataset, direct_candidates)
     truth_seconds = time.perf_counter() - truth_started
@@ -397,8 +397,8 @@ def run_experiment(
         )
         if binned_map_m and mode_binning is None:
             raise RuntimeError(f"{mode} 缺少第二轮分箱计划")
-        # 无乘积猜测时不再形成 Top-ck 候选集合；MAP 在第一阶段单项池
-        # 所诱导的全部合法项集上工作，再由客户端本地 Top-k 键决定可估计域。
+        # Without product guessing, MAP considers all legal itemsets induced by the
+        # first-round item pool, not top-ck. Local top-k keys determine which are estimable.
         mode_candidates = (
             direct_candidates
             if mode in {
@@ -440,8 +440,8 @@ def run_experiment(
                 local_projection_limit=p.local_projection_limit,
                 report_key_limit=upload_limit,
                 estimator=p.estimator,
-                # MAP-L-Top 和 MAP-M 分别使用各自的联合键预算权重；MAP-S
-                # 与完整 MAP-L 保持原有均分预算，便于内部对照。
+                # MAP-L-Top and MAP-M use their respective joint-key budget settings;
+                # MAP-S and full MAP-L retain equal allocation for internal comparisons.
                 local_joint_budget_weight=(
                     p.local_joint_budget_weight
                     if mode == LOCAL_TOP_ITEMSET_ALPHA
@@ -457,7 +457,7 @@ def run_experiment(
                 ),
                 map_m_bin_count=p.map_m_bin_count,
                 map_m_binning=mode_binning,
-                # 使用服务端聚合后的第一轮 DP 单项频数统一排序。
+                # Rank all keys using server-aggregated first-round DP item counts.
                 noisy_singleton_counts=noisy_counts,
                 normalization_n=float(noisy_n),
             )
@@ -700,7 +700,7 @@ def run_experiment(
             ),
             "local_projection_limit": p.local_projection_limit,
             "local_joint_budget_weight": p.local_joint_budget_weight,
-            # 正值启用测量组预算，0 表示完全关闭并逐键均分。
+            # Positive values enable measurement-group budgets; zero uses equal per-key budgets.
             "mixed_joint_budget_weight": p.mixed_joint_budget_weight,
             "frequency_guessing": mode not in {
                 LOCAL_TOP_SINGLETON_ALPHA,
@@ -790,7 +790,7 @@ def run_experiment(
             ),
             "metrics": metrics.to_dict(),
             "report_key_count": report_counts,
-            # 仅由公开候选与第一轮 DP 频数计算，用于上传上限消融诊断。
+            # Diagnose the upload-cap ablation using only public candidates and DP item counts.
             "available_report_key_count": (
                 {
                     client.client_id: len(client.report_keys(
@@ -857,7 +857,7 @@ def run_experiment(
                 }
                 for estimate in estimates[: p.k]
             ],
-            # 完整估计序列供独立的全局真值复核使用，不向协议反馈真值。
+            # Export all estimates for independent global auditing, without feeding truth to the protocol.
             "estimates": [
                 {"itemset": [list(item) for item in estimate.itemset],
                  "estimated_count": estimate.estimated_count,

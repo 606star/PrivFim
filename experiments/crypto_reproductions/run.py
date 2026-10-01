@@ -64,8 +64,8 @@ def run_nipp(ds, candidates, threshold, output, check=False, timeout=None,
              [(int(a), int(v)) for a in ds.attributes for v in ds.domains[a]])
     if not items:
         raise ValueError("at least one encrypted item is required")
-    # 当前 TFHE 参数档每个 LWE 样本的实测序列化大小为 2536 bytes。
-    # 这里只做保守的输入规模检查，实际进程还需要 bootstrapping key 和临时内存。
+    # Each serialized LWE sample measures 2536 bytes with the current TFHE parameters.
+    # This input-size check excludes additional bootstrapping-key and temporary memory.
     width = ds.n_rows.bit_length()
     encrypted_queries = len(candidates) if not public_query or check else 0
     ciphertext_count = (ds.n_rows + encrypted_queries) * len(items) + len(candidates) * (width + 2) + width
@@ -110,7 +110,7 @@ def run_nipp(ds, candidates, threshold, output, check=False, timeout=None,
 
 
 def evaluate(ds, supports, candidates, k, max_size):
-    # 仅在协议返回以后接触原始数据计算真值，真值不进入上述任何云端接口。
+    # Compute truth from raw data only after the protocol returns; cloud interfaces never receive it.
     expected = {key: ds.support(key) for key in candidates}
     mismatches = [key for key in candidates if supports.get(key, 0) != expected[key]]
     if mismatches:
@@ -206,7 +206,7 @@ def main():
                                                 anonymity=args.frequency_anonymity,
                                                 key_bits=args.paillier_bits,
                                                 candidate_limit=args.candidate_limit)
-                # Eclat 不出现的公开候选没有匹配 TID，其支持数必为 0。
+                # Public candidates absent from Eclat have no matching TIDs and therefore zero support.
                 supports = {key: supports.get(key, 0) for key in candidates}
             phase = time.perf_counter()
             sorted(supports, key=lambda key: (-supports[key], key))[:args.k]

@@ -90,7 +90,7 @@ def test_map_m_downlink_counts_noisy_singleton_frequency_table():
         noisy_singleton_counts={(0, 1): 7.0, (1, 2): 6.0},
     )
 
-    # 每个客户端额外接收一个 uint32 长度及两个 (uint32,int64,float64) 条目。
+    # Each client additionally receives a uint32 length and two (uint32,int64,float64) entries.
     assert with_counts["candidate_downlink_bytes"] - without_counts[
         "candidate_downlink_bytes"
     ] == 2 * (4 + 2 * (4 + 8 + 8))

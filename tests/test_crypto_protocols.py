@@ -218,7 +218,7 @@ def test_large_domain_evaluation_never_switches_to_candidate_restricted_truth():
                          partitions=(tuple(range(35)), tuple(range(35,70))),
                          domains=tuple((0,1,2) for _ in range(70)))
     candidate = ((0, 1),)
-    # 210 单项触发过旧实现的百万组合回退；该候选不在全局 Top-1。
+    # With 210 items the old million-combination fallback triggered; this candidate is not global top-1.
     scores = _rank_candidate_metrics(ds, [candidate], 1, {candidate: 1.0})
     assert scores["f1"] == 0
 

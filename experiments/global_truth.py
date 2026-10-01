@@ -1,4 +1,4 @@
-"""离线精确真值；不向任何私有挖掘阶段反馈真实计数。"""
+"""Exact offline ground truth; never feed true counts into private mining stages."""
 from __future__ import annotations
 
 from collections import Counter
@@ -16,12 +16,12 @@ def exact_topk(
     *,
     allowed_items: set[Item] | None = None,
 ) -> tuple[dict[Itemset, int], dict]:
-    """精确挖掘 1..max_size 项集，按 (-真实支持数, 项集) 排序。
+    """Mine exact size-1..max_size itemsets, ordered by (-true support, itemset).
 
-    默认覆盖全部属性值。allowed_items 只用于复现旧的受限真值口径。
-    第 k 大单项支持数是全局第 k 大支持数的下界。支持数反单调，
-    因而小于此界的单项及其扩展均不可能进入 Top-k；等号不能剪枝。
-    ID 集合用 Python 整数位图表示，交集计数为 (left & right).bit_count()。
+    Cover all attribute values by default; allowed_items reproduces legacy restricted truth.
+    The k-th largest singleton support lower-bounds the global k-th largest support.
+    Anti-monotonicity excludes items below that bound and their extensions, but not ties.
+    Represent ID sets as Python integer bitmaps; count intersections with (left & right).bit_count().
     """
     if k < 1 or max_size < 1:
         raise ValueError("k 和 max_size 必须为正数")
@@ -83,7 +83,7 @@ def exact_topk(
 
 
 def support_tie_recall(predictions: list[Itemset], truth: dict[Itemset, int], supports: dict[Itemset, int]) -> float:
-    """辅助诊断：边界处同支持数的项集可互换，不替代原定义的 F1/NCR。"""
+    """Diagnostic allowing equal-support boundary ties; does not replace standard F1/NCR."""
     if not truth:
         return 0.0
     cutoff = min(truth.values())

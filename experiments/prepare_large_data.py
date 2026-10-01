@@ -25,7 +25,7 @@ DOWNLOAD_URL = (
 DOI = "https://doi.org/10.24432/C5N30T"
 EXPECTED_ROWS = 299_285
 RAW_COLUMNS = 42
-IGNORED_SOURCE_COLUMNS = frozenset({24})  # UCI 明确要求忽略实例权重。
+IGNORED_SOURCE_COLUMNS = frozenset({24})  # UCI explicitly instructs users to ignore instance weights.
 TARGET_SOURCE_COLUMN = 41
 CONTINUOUS_SOURCE_COLUMNS = frozenset({0, 5, 16, 17, 18, 30, 39})
 ZERO_AWARE_SOURCE_COLUMNS = frozenset({5, 16, 17, 18})
@@ -97,7 +97,7 @@ def _download(archive_path: Path) -> None:
 
 
 def _extract_raw_files(archive_path: Path, output_dir: Path) -> tuple[Path, ...]:
-    # UCI 外层 ZIP 只包含一个 census.tar.gz；这里只提取两个明确的数据成员。
+    # The UCI ZIP contains census.tar.gz; extract only the two explicitly named data members.
     with zipfile.ZipFile(archive_path) as outer:
         with outer.open("census.tar.gz") as source:
             tar_path = output_dir / "census.tar.gz"

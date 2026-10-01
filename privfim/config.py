@@ -27,15 +27,15 @@ class DataConfig:
     csv_path: str = "data/Retail.csv"
     num_clients: int = 4
     max_rows: int | None = None
-    # 以完整数据集行数为基准的抽样比例；与 max_rows 二选一。
+    # Sampling fraction of the complete dataset; mutually exclusive with max_rows.
     sample_ratio: float | None = None
-    # 实验 5/6 的表示变换比例。变换在垂直划分前完成。
+    # Representation-transform ratios for experiments 5/6, applied before partitioning.
     feature_ratio: float | None = None
     domain_ratio: float | None = None
     transform_seed: int | None = None
     attribute_ratios: tuple[float, ...] | None = None
     partition_seed: int | None = None
-    # auto 保持旧行为：给定 partition_seed 时随机打散，否则按原列序。
+    # auto preserves legacy behavior: shuffle with partition_seed, otherwise use column order.
     partition_strategy: str = "auto"
     row_sampling_seed: int | None = 2026
 
@@ -44,17 +44,17 @@ class DataConfig:
 class ProtocolConfig:
     k: int = 15
     candidate_multiplier: float = 2.0
-    # 第二阶段每个客户端的单项/联合键总上限；None 沿用 k，0 表示不限。
+    # Per-client second-round cap on singleton/joint keys; None uses k, 0 is unlimited.
     second_stage_upload_limit: int | None = None
-    # 第一阶段保留的频繁单项数；None 表示沿用最终输出 k。
+    # Number of frequent items retained in round one; None uses the output k.
     first_stage_k: int | None = None
-    # 每个客户端第一轮最多上传的加噪单项数；先对完整公开值域加噪，
-    # 再按 noisy count 选择 Top-P，因此键选择是 DP 输出的后处理。
+    # Per-client cap on first-round noisy item reports. Noise the full public domain,
+    # then select top-P by noisy count, making key selection DP post-processing.
     first_stage_report_limit: int | None = None
-    # singleton 保持当前“先筛单项、再组合”的 SVSM；itemset 先在同一
-    # 第一轮 DP 单项直方图上枚举并优先保留联合项集，用于候选优先级消融。
+    # singleton uses SVSM item screening followed by combination; itemset enumerates
+    # from the same DP histogram and prioritizes joint itemsets for the selection ablation.
     first_stage_mode: str = "singleton"
-    # topk 为当前候选剪枝；none 保留值域内的全部合法候选。
+    # topk prunes candidates; none retains all legal candidates in the domain.
     candidate_pruning: str = "topk"
     min_itemset_size: int = 1
     max_itemset_size: int = 4
@@ -76,11 +76,11 @@ class ProtocolConfig:
     local_key_policy: str = "required"
     local_projection_limit: int | None = None
     local_joint_budget_weight: float = 1.0
-    # 正值启用 MAP-M 的属性投影组预算；数值大小仅为兼容旧配置保留。
-    # 设为 0 时关闭分组复用，对全部上传键逐键均分预算。
+    # Positive values enable MAP-M projection-group budgets; magnitude is legacy-only.
+    # Zero disables group reuse and allocates equal budgets to all reported keys.
     mixed_joint_budget_weight: float = 4.0
-    # 可选 MAP-M-Bin：由第一轮私有直方图将属性压缩为至多该数目的连续桶。
-    # None 保持精确 MAP-M；桶内恢复只读取第一轮已经私有化的直方图。
+    # Optional MAP-M-Bin: compress each attribute into at most this many contiguous bins.
+    # None keeps exact MAP-M; binning and recovery use only the first-round DP histogram.
     map_m_bin_count: int | None = None
 
     modes: tuple[str, ...] = field(
@@ -191,7 +191,7 @@ def load_config(path: str | Path) -> ExperimentConfig:
         data_raw["attribute_ratios"] = tuple(data_raw["attribute_ratios"])
     csv_path = Path(data_raw.get("csv_path", DataConfig.csv_path))
     if not csv_path.is_absolute():
-        # 数据路径相对于配置文件所在目录解析。
+        # Resolve data paths relative to the configuration file.
         data_raw["csv_path"] = str((config_path.parent / csv_path).resolve())
 
     protocol_raw = dict(raw.get("protocol", {}))

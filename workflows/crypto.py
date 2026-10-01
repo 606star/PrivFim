@@ -1,4 +1,4 @@
-"""按数据集保存真实密码学评估，不设置默认时间窗口或自动外推。"""
+"""Save measured crypto results per dataset, without default time limits or extrapolation."""
 from __future__ import annotations
 
 import json
@@ -69,7 +69,7 @@ def run(args):
                         candidates=candidates if args.candidate_source == "two-round" else None,
                         candidate_limit=args.candidate_limit)
                     supports = {key: supports.get(key, 0) for key in candidates}
-                # 支持数必须逐项通过明文离线核验，不能预设 F1/NCR 为 1。
+                # Verify every support against offline plaintext counts; never assume F1/NCR equals 1.
                 if any(supports[key] != ds.support(key) for key in candidates):
                     raise AssertionError("Encrypted support disagrees with independent plaintext verification")
                 ordered = sorted(supports, key=lambda key: (-supports[key], key))

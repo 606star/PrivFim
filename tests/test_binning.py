@@ -16,7 +16,7 @@ def test_private_quantile_bins_use_only_noisy_counts_and_cover_domain():
 
     plan = private_quantile_bins(domains, noisy_counts, bin_count=3)
 
-    # 高频值获得更细桶；所有公开值仍恰好被一个连续桶覆盖。
+    # Frequent values receive finer bins; contiguous bins still cover each public value exactly once.
     assert plan == (((0,), (1,), (2, 3, 4, 5)),)
     assert binned_itemset(((0, 4),), domains, 3, plan) == ((0, 2),)
     assert within_bin_probability(0, 2, noisy_counts, domains, 3, plan) == pytest.approx(

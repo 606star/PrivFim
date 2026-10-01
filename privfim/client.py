@@ -154,8 +154,8 @@ class VerticalClient:
                     candidate.score,
                     local_projection_scores.get(projection, float("-inf")),
                 )
-                # 累计公开候选频率，而不是只保留一个最大 score。一个联合键
-                # 若服务多个候选，其预算收益应按覆盖的候选质量累计。
+                # Sum public candidate frequencies instead of taking the maximum score.
+                # A joint key serving multiple candidates benefits from their combined mass.
                 local_projection_utility[projection] = (
                     local_projection_utility.get(projection, 0.0)
                     + max(float(candidate.guessed_count), 0.0)
@@ -179,9 +179,9 @@ class VerticalClient:
                     raise ValueError(
                         "MAP-L-Top 必须设置非负的 local_projection_limit"
                     )
-                # 先在公开候选中选择联合键，再只为没有被联合键覆盖的候选
-                # 保留组成单项。这样联合键是真正的“替代”，而不是在 MAP-S
-                # 的全部键上无条件追加，避免预算必然摊薄。
+                # Select joint keys from public candidates, then retain component items
+                # only for uncovered candidates. Joint keys replace existing keys instead
+                # of always extending MAP-S's key set and diluting its budget.
                 ranked_projections = sorted(
                     local_projection_scores,
                     key=lambda key: (
@@ -209,12 +209,12 @@ class VerticalClient:
                         )
                 keys = selected_projections | fallback_singletons
             else:
-                # MAP-L 精确上传 S 中各候选在本方的非空投影并去重。组成投影的
-                # 单项只有在另一个候选确实需要该单项投影时才会单独上传。
+                # MAP-L reports unique nonempty local projections of candidates in S.
+                # Report component items separately only when another candidate needs them.
                 keys = required_keys
         elif mode == LOCAL_TOP_SINGLETON_ALPHA:
-            # 无频率猜测消融：客户端直接按本地真实频数选择最多 k 个
-            # 候选单项。该选择只用于实验对照，不改变 MAP 后处理器。
+            # No-guessing ablation: select at most k candidate items by raw local counts.
+            # This experimental comparison leaves the MAP post-processor unchanged.
             if report_key_limit is None or report_key_limit < 1:
                 raise ValueError("MAP-NoGuess-Items 必须设置正的 report_key_limit")
             ranked = sorted(
@@ -223,8 +223,8 @@ class VerticalClient:
             )
             keys = set(ranked[:report_key_limit])
         elif mode == LOCAL_TOP_ITEMSET_COMPONENT_ALPHA:
-            # 无频率猜测消融：先按本地支持度排序候选投影，再上传所选
-            # 本地项集的组成单项 Alpha；因此上传键数可能小于等于 k*|X|。
+            # No-guessing ablation: rank projections by local support, then report their
+            # component singleton Alpha sketches. The report count can be up to k*|X|.
             if report_key_limit is None or report_key_limit < 1:
                 raise ValueError(
                     "MAP-NoGuess-ItemsetComponents 必须设置正的 report_key_limit"
@@ -248,12 +248,12 @@ class VerticalClient:
         }:
             if report_key_limit is None or report_key_limit < 0:
                 raise ValueError("MAP-M 类模式必须设置非负的 report_key_limit")
-            # 0 为上传上限消融的不限模式；仍使用完全相同的公开评分规则。
+            # Zero removes the upload cap while retaining the same public scoring rule.
             if report_key_limit == 0:
                 report_key_limit = len(singleton_keys | required_keys)
 
-            # 由第一轮已发布的 Laplace 加噪单项频数重建每个本地键的
-            # SVSM 频率猜测，避免用未私有化的本地支持度决定上传键集合。
+            # Reconstruct SVSM guesses from released first-round Laplace item counts.
+            # Never use raw local supports to choose the reported key set.
             reference_n = float(
                 self.n_rows if normalization_n is None else normalization_n
             )
@@ -282,18 +282,18 @@ class VerticalClient:
                 MIXED_BINNED_ITEMSET_ALPHA,
                 MIXED_PROTECTED_BINNED_ITEMSET_ALPHA,
             }:
-                # 单项键与本地联合键使用同一频率定义并统一竞争 k 个名额。
-                # 单项直接使用第一轮加噪频数；r 项联合键使用这些频数的
-                # 乘积除以 N^(r-1)。确定性排序完全属于第一轮 DP 输出的后处理。
+                # Singleton and joint keys compete for k slots on the same count scale.
+                # Singletons use noisy counts; r-item keys use their product / N^(r-1).
+                # Deterministic ranking is post-processing of the first-round DP output.
                 ranked_keys = sorted(
                     singleton_keys | required_keys,
                     key=lambda key: (-key_frequencies[key], key),
                 )
                 keys = set(ranked_keys[:report_key_limit])
             else:
-                # MAP-M-Cover 只强制保留本方投影本来就是单体的键；其余空间
-                # 优先留给可把多个单体 block 压成一个本地 block 的联合键。
-                # 所有分数都来自公开第一轮候选，不读取本地支持度。
+                # MAP-M-Cover requires only keys whose local projections are singletons.
+                # Prefer joint keys that combine several singleton blocks into one local block.
+                # Scores use public first-round candidates, never raw local supports.
                 singleton_utility = {key: 0.0 for key in singleton_keys}
                 projection_utility = {key: 0.0 for key in local_projection_scores}
                 mandatory_singletons: set[Itemset] = set()
@@ -315,7 +315,7 @@ class VerticalClient:
                             weight / len(projection)
                         )
                     if projection in projection_utility:
-                        # 一个联合键服务该候选，并减少 len(projection)-1 个 block。
+                        # One joint key serves this candidate and removes len(projection)-1 blocks.
                         projection_utility[projection] += weight * (
                             len(projection) - 1
                         )
@@ -370,7 +370,7 @@ class VerticalClient:
     def _fm_report_keys(
         self, candidates: list[Candidate], estimator: str
     ) -> tuple[Itemset, ...]:
-        """构造经典完整值域或频繁压缩 FM 的正向类别桶。"""
+        """Build positive category bins for full-domain or frequency-compressed FM."""
         target_values = self._target_values(candidates)
         keys: set[Itemset] = set()
         for attr, targets in target_values.items():
@@ -387,8 +387,8 @@ class VerticalClient:
             if estimator == FM_FULL_ESTIMATOR:
                 values = domain
             else:
-                # 频繁改进 FM 为每个相关属性固定保留一个 OTHER 桶；
-                # 即使当前目标值覆盖公开域，这个空桶也参与预算分配。
+                # Frequency-aware FM always reserves an OTHER bin per relevant attribute.
+                # Budget it even when targets cover the domain and the bin is empty.
                 values = {*(targets & domain), FM_OTHER_VALUE}
             keys.update(canonical_itemset([(attr, value)]) for value in values)
         return tuple(sorted(keys))
@@ -452,8 +452,8 @@ class VerticalClient:
         if binned_map_m:
             if self.domains is None:
                 raise ValueError("MAP-M-Bin 需要公开完整值域")
-            # 键的 Top-k 选择仍基于精确的第一轮公开候选；编码时再将同桶
-            # 精确键合并，避免高维值域为每个候选值重复生成 Alpha。
+            # Select top-k keys from exact public first-round candidates, then merge keys
+            # in the same bin during encoding to avoid generating redundant Alpha sketches.
             keys = tuple(
                 sorted(
                     {
@@ -480,8 +480,8 @@ class VerticalClient:
             and local_joint_budget_weight > 0
         )
         if grouped_map_m:
-            # MAP-M 的本地单项/联合项按属性投影分组。例如 {男}/{女}
-            # 共用性别组的一份预算，而不是按值桶个数继续拆薄。
+            # Group MAP-M singleton/joint keys by attribute projection. For example,
+            # {male}/{female} reuse the gender-group budget instead of splitting it by bin.
             grouped_budget = split_grouped_budget(epsilon, delta, keys)
             key_budgets = [grouped_budget.budget_by_key[key] for key in keys]
         elif (
@@ -496,8 +496,8 @@ class VerticalClient:
             and estimator not in {FM_FULL_ESTIMATOR, FM_OTHER_ESTIMATOR}
             and local_joint_budget_weight == 0
         ):
-            # 完全关闭 MAP-M 分组预算的消融：无论单项键还是联合键，
-            # 客户端实际上传的每个键都获得相同的一份预算。
+            # Disable MAP-M group budgets for this ablation: every reported key receives
+            # the same budget, whether it represents a singleton or a joint itemset.
             per_key_budget = split_budget(epsilon, delta, len(keys))
             key_budgets = [per_key_budget] * len(keys)
         else:
@@ -519,8 +519,8 @@ class VerticalClient:
         category_fm = estimator in {FM_FULL_ESTIMATOR, FM_OTHER_ESTIMATOR}
         inverse_fm = estimator in {"fm", FM_INVERSE_ESTIMATOR}
 
-        # 即使某个键在本地支持度为 0，也生成带幻影元素的 α。
-        # 是否上传不能依赖私有数据，否则通信模式本身会泄漏信息。
+        # Generate Alpha with phantom elements even when local support is zero.
+        # Reporting decisions must not expose private data through the communication pattern.
         for key, budget in zip(keys, key_budgets, strict=True):
             coordinate_epsilon = dpfm_coordinate_epsilon(
                 budget.epsilon,
@@ -536,13 +536,13 @@ class VerticalClient:
                     key, map_m_bin_count, map_m_binning
                 )
             else:
-                # MAP-S/MAP-L 只私有化候选真正需要的正向集合；同属性下的
-                # 其他取值既不生成 Alpha，也不参与该键的预算拆分。
+                # MAP-S/MAP-L privatize only the positive sets required by candidates.
+                # Other values of the same attribute generate no Alpha and receive no budget.
                 membership = self._membership(key)
-            # MAP-L-Top 的单项回退键与 MAP-S 使用同一私有随机性。这样比较时
-            # 新增联合键是唯一变量；实际部署仍只发布一种协议输出。
-            # M 在未触发限键时应严格退化为 MAP-S；即使触发限键，
-            # 组成单项也复用 MAP-S 的实验随机性，避免比较被独立噪声主导。
+            # MAP-L-Top fallback items share MAP-S's experimental randomness to isolate
+            # the effect of additional joint keys. Deployments release only one protocol output.
+            # M should reduce exactly to MAP-S when the key cap is inactive. Even with a cap,
+            # component items reuse MAP-S randomness so independent noise does not dominate comparisons.
             randomness_mode = (
                 f"{mode}_bin_{map_m_bin_count}"
                 if binned_map_m
@@ -568,8 +568,8 @@ class VerticalClient:
                 membership=membership,
                 epsilon=budget.epsilon,
                 delta=budget.delta,
-                # Cover 与旧 MAP-M 对共有键复用同一实验随机性，使两者差异
-                # 只来自键选择而不是独立 DP 噪声。部署时每次只发布一种模式。
+                # Cover and legacy MAP-M share experimental randomness for common keys.
+                # This isolates key selection from DP noise; deployments release one mode at a time.
                 random_seed=stable_seed(
                     seed,
                     self.client_id,
@@ -588,7 +588,7 @@ class VerticalClient:
                     phantom_count=phantom_count,
                     is_complement=inverse_fm,
                     coordinate_epsilon=coordinate_epsilon,
-                    # Dummy 只屏蔽联合键；单项 Alpha 仍作为回退信息使用。
+                    # Dummy excludes only joint keys; singleton Alpha remains available for fallback.
                     used_in_estimation=not (
                         mode == MIXED_DUMMY_ITEMSET_ALPHA and len(key) > 1
                     ),
@@ -602,7 +602,7 @@ class VerticalClient:
         bin_count: int,
         binning: BinningPlan | None = None,
     ) -> np.ndarray:
-        """生成公开分箱键对应的正向桶 membership。"""
+        """Build positive-set membership for a public bin key."""
         if self.domains is None:
             raise ValueError("MAP-M-Bin 需要公开完整值域")
         mask = np.ones(self.n_rows, dtype=bool)

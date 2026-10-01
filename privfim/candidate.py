@@ -24,11 +24,11 @@ def construct_itemset_first_candidates(
     min_size: int,
     max_size: int,
 ) -> list[Candidate]:
-    """在第一轮 DP 单项直方图上进行候选优先级消融。
+    """Ablate candidate prioritization using the first-round DP item histogram.
 
-    两种策略复用相同的候选评分和加噪单项统计。本策略优先保留多项集，
-    在名额充足时为单项保留一个位置；默认策略则将各长度候选统一排序。
-    这里没有直接采集本地联合项集频数，仅测量候选组成的变化。
+    Both policies share candidate scores and noisy item statistics. This policy
+    prioritizes joint itemsets and reserves a singleton slot when capacity permits;
+    the default ranks all lengths together. No local joint counts are collected.
     """
     all_candidates = construct_svsm_candidates(
         frequent_items=frequent_items,
@@ -50,7 +50,7 @@ def construct_itemset_first_candidates(
         return []
     itemsets = [candidate for candidate in all_candidates if len(candidate.itemset) > 1]
     singletons = [candidate for candidate in all_candidates if len(candidate.itemset) == 1]
-    # 联合项集优先但保留至少一个单项位置，避免第二阶段完全失去 1-项集。
+    # Prioritize joint itemsets but reserve a singleton slot for the second round.
     itemset_quota = min(len(itemsets), max(candidate_count - 1, 0))
     selected = itemsets[:itemset_quota]
     remaining = candidate_count - len(selected)
@@ -68,7 +68,7 @@ def construct_svsm_candidates(
     min_size: int,
     max_size: int,
 ) -> list[Candidate]:
-    """按 SVSM 的归一化频率乘积选择包含 1-项集的统一 Top 候选。"""
+    """Select top candidates, including singletons, by SVSM normalized-frequency products."""
     if not frequent_items:
         return []
 
@@ -111,7 +111,7 @@ def construct_direct_candidates(
     min_size: int,
     max_size: int,
 ) -> list[Candidate]:
-    """枚举频繁单项池中的全部合法项集，作为 MAP-S-All 的共同评价域。"""
+    """Enumerate legal itemsets from the item pool for the shared MAP-S-All evaluation domain."""
     if not frequent_items:
         return []
     return construct_svsm_candidates(

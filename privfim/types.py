@@ -6,16 +6,16 @@ from typing import Iterable, TypeAlias
 import numpy as np
 
 
-# 进入实验缓存键；协议语义改变时必须更新，防止混用旧结果。
+# Included in experiment cache keys; update when protocol semantics change.
 PROTOCOL_IMPLEMENTATION_VERSION = "positive-alpha-map-v22-plan-budget"
 
 
-# Item 使用 (属性编号, 属性取值) 表示，避免不同属性中同名取值发生冲突。
+# Represent items as (attribute ID, value) to distinguish values across attributes.
 Item: TypeAlias = tuple[int, int]
 Itemset: TypeAlias = tuple[Item, ...]
 
-# FM-Other 用这个保留值表示一个属性中所有未被候选 S 点名的取值。
-# 当前数据载入为 int64，因此选择 int64 最小值并在客户端拒绝真实数据冲突。
+# FM-Other uses this sentinel for attribute values not targeted by candidates S.
+# Data use int64, so reserve its minimum value and reject collisions on the client.
 FM_OTHER_VALUE = -(1 << 63)
 
 MAP_ESTIMATOR = "map"
@@ -44,16 +44,16 @@ ESTIMATOR_LABELS = {
 SINGLETON_ALPHA = "singleton_alpha"
 LOCAL_ITEMSET_ALPHA = "local_itemset_alpha"
 MIXED_ITEMSET_ALPHA = "mixed_itemset_alpha"
-# VertiMRF 风格的高维值域压缩消融；精确 MAP-M 保持独立模式。
+# VertiMRF-style domain-compression ablation; exact MAP-M remains a separate mode.
 MIXED_BINNED_ITEMSET_ALPHA = "mixed_binned_itemset_alpha"
-# 保护式分箱：候选高价值 value 单独成桶，剩余长尾再压缩。
+# Protected binning: isolate high-value candidate values and compress the long tail.
 MIXED_PROTECTED_BINNED_ITEMSET_ALPHA = "mixed_protected_binned_itemset_alpha"
 MIXED_COVER_ITEMSET_ALPHA = "mixed_cover_itemset_alpha"
-# 仅用于消融：生成与 MAP-M 相同的联合 Alpha 并消耗预算，但服务端不使用联合键。
+# Ablation only: generate and budget MAP-M joint Alpha, but ignore joint keys at the server.
 MIXED_DUMMY_ITEMSET_ALPHA = "mixed_dummy_itemset_alpha"
-# MAP-L 的预算受控变体：保留候选相关单项，并只加入最有价值的本地联合键。
+# Budget-controlled MAP-L: retain relevant items and add only the most valuable local joint keys.
 LOCAL_TOP_ITEMSET_ALPHA = "local_top_itemset_alpha"
-# 频率猜测消融：不使用 SVSM 乘积，仅按本地原始频数选择键。
+# Frequency-guessing ablation: select keys by raw local counts, without SVSM products.
 LOCAL_TOP_SINGLETON_ALPHA = "local_top_singleton_alpha"
 LOCAL_TOP_ITEMSET_COMPONENT_ALPHA = "local_top_itemset_component_alpha"
 DIRECT_UNION_COMPLEMENT = "direct_union_complement"
@@ -71,7 +71,7 @@ REPORT_MODES = (
     LOCAL_TOP_ITEMSET_COMPONENT_ALPHA,
 )
 REPORT_MODE_LABELS = {
-    # 保留旧代码标识以兼容配置；该模式现在表示不经 Top-2k 筛选的 MAP-S。
+    # Keep the legacy identifier for compatibility; this is MAP-S without top-2k filtering.
     DIRECT_UNION_COMPLEMENT: "MAP-S-All",
     SINGLETON_ALPHA: "MAP-S",
     LOCAL_ITEMSET_ALPHA: "MAP-L",
@@ -87,7 +87,7 @@ REPORT_MODE_LABELS = {
 
 
 def canonical_itemset(items: Iterable[Item]) -> Itemset:
-    """生成稳定、可作为字典键的项集表示。"""
+    """Return a stable itemset representation suitable for dictionary keys."""
     result = tuple(sorted(set(items), key=lambda item: (item[0], item[1])))
     attrs = [item[0] for item in result]
     if len(attrs) != len(set(attrs)):
@@ -129,7 +129,7 @@ class AlphaReport:
     phantom_count: float
     is_complement: bool = False
     coordinate_epsilon: float | None = None
-    # Dummy 消融仍然发布并计入预算，但服务端故意不将该报告纳入 MAP。
+    # The dummy ablation publishes and budgets this report but excludes it from MAP.
     used_in_estimation: bool = True
 
 
